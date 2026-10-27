@@ -228,8 +228,8 @@ table.rules th.cur{color:var(--accent)}
       <div>
         <span class="label">계층</span>
         <div class="seg" id="tierSeg" role="group" aria-label="계층">
-          <button type="button" data-tier="all" aria-pressed="true">병사+간부</button>
-          <button type="button" data-tier="enlisted" aria-pressed="false">병사만</button>
+          <button type="button" data-tier="all" aria-pressed="false">병사+간부</button>
+          <button type="button" data-tier="enlisted" aria-pressed="true">병사만</button>
           <button type="button" data-tier="cadre" aria-pressed="false">간부만</button>
         </div>
       </div>
@@ -456,7 +456,7 @@ const titleOf = L => L < 5 ? '신입' : L < 10 ? '숙련' : L < 15 ? '전문가'
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
 function pickW(rng, entries){ const tot = entries.reduce((s,e)=>s+e[1],0); let x = rng()*tot; for (const [v,w] of entries){ if((x-=w) < 0) return v; } return entries[entries.length-1][0]; }
 
-const state = { people:[], acts:[], offset:0, mode:'job', fUnit:'1중대', fJob:'admin', fTier:'all', q:'', sel:0, lens:'admin',
+const state = { people:[], acts:[], offset:0, mode:'job', fUnit:'1중대', fJob:'admin', fTier:'enlisted', q:'', sel:0, lens:'admin',
   form:{type:'eventdoc', scale:'major', role:'lead', detail:{}}, busy:false };
 
 // ---------- 데이터: Supabase(설정 시) 또는 로컬 시드 ----------
@@ -629,7 +629,7 @@ const compOf = (pct, tier, job) => { const w = wOf(tier, job); return STATS.redu
 
 // 직무 비교 코드: 특기 직무는 특기별로 나눔 (예: 'spec:signal' = 특기(통신))
 const codeOf = p => p.job === 'spec' ? 'spec:' + p.spec : p.job;
-const codeLabel = c => c.startsWith('spec:') ? `특기(${SPECS[c.slice(5)]})` : c === 'spec' ? '특기(전체)' : JOBS[c].n;
+const codeLabel = c => c.startsWith('spec:') ? `직무(${SPECS[c.slice(5)]})` : c === 'spec' ? '직무(특기 전체)' : JOBS[c].n;
 const matchCode = (x, c) => c === 'spec' ? x.job === 'spec' : codeOf(x) === c;
 const lensCode = (p, lens) => lens !== 'spec' ? lens : state.people.some(x => codeOf(x) === 'spec:' + p.spec) ? 'spec:' + p.spec : 'spec';
 const jobCodes = () => { const cs = new Set(state.people.map(codeOf)); return ['admin', ...SPEC_KEYS.map(s => 'spec:' + s).filter(c => cs.has(c)), 'cmd']; };
@@ -713,7 +713,7 @@ function renderIdentity(p){
   $('#pName').textContent = `${p.name} ${p.rank}`;
   $('#pUnit').textContent = `${p.unit} · ${TIERS[tierOf(p)]}`;
   $('#pSpec').textContent = SPECS[p.spec];
-  $('#pJob').innerHTML = JOB_KEYS.map(j => `<option value="${j}">${j === 'spec' ? `특기(${SPECS[p.spec]})` : JOBS[j].n}</option>`).join('');
+  $('#pJob').innerHTML = JOB_KEYS.map(j => `<option value="${j}">${j === 'spec' ? `직무(${SPECS[p.spec]})` : JOBS[j].n}</option>`).join('');
   $('#pJob').value = p.job;
 }
 function rankLabel(s, before){
@@ -1031,7 +1031,7 @@ $('#resetBtn').addEventListener('click', async () => {
     } catch (err){ console.error(err); setStatus('error'); }
     state.busy = false;
   } else seed();
-  Object.assign(state, { sel:0, mode:'job', fUnit:'1중대', fJob:'admin', fTier:'all', lens:'admin' });
+  Object.assign(state, { sel:0, mode:'job', fUnit:'1중대', fJob:'admin', fTier:'enlisted', lens:'admin' });
   syncPickers(); renderAll(); toast('처음 상태로 되돌렸어요.');
 });
 
