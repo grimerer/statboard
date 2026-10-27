@@ -19,12 +19,14 @@ create table if not exists public.activities (
   id           bigint generated always as identity primary key,
   personnel_id int not null references public.personnel(id) on delete cascade,
   type         text not null,                -- 활동 유형 템플릿 id
-  scale        text not null check (scale in ('daily','normal','important','major')),
-  role         text not null check (role in ('lead','part','sup')),
-  points       numeric not null check (points > 0 and points <= 30),
+  scale        text check (scale in ('daily','normal','important','major')),   -- 세부 입력 활동은 비움
+  role         text check (role in ('lead','part','sup')),
+  points       numeric not null constraint activities_points_check check (points >= 0 and points <= 30),
+  detail       jsonb,                        -- 체력검정·사격·자격증·전문교육 세부 결과
   occurred_at  date not null default current_date,
   is_seed      boolean not null default false,
-  created_at   timestamptz not null default now()
+  created_at   timestamptz not null default now(),
+  constraint activities_scale_or_detail check (detail is not null or (scale is not null and role is not null))
 );
 create index if not exists activities_personnel_idx on public.activities (personnel_id);
 
