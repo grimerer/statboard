@@ -741,9 +741,17 @@ function renderScore(s, before){
   const ex = STATS.filter(st => !s.vis.includes(st)).map(st => st.n);
   $('#exclNote').textContent = ex.length ? `반영하지 않는 능력치: ${ex.join(', ')}` : '';
 }
+// 직무별 점수 카드: 직무(행정) + 특기 직무(정비·통신 특기일 때) + 직무(지휘)(병장·간부일 때) + 현재 담당 직무
+function lensKeys(p){
+  const ks = ['admin'], d = DUTY_OF_SPEC[p.spec];
+  if (d === 'maint' || d === 'signal') ks.push(d);
+  if (p.rank === '병장' || tierOf(p) === 'cadre') ks.push('cmd');
+  if (!ks.includes(p.job)) ks.push(p.job);
+  return JOB_KEYS.filter(k => ks.includes(k));
+}
 function renderLens(p, raw){
   $('#lensLabel').textContent = `직무별 종합 능력 점수 · ${TIERS[tierOf(p)]} 기준 · 눌러서 기준 바꾸기`;
-  $('#lensGrid').innerHTML = JOB_KEYS.map(j => {
+  $('#lensGrid').innerHTML = lensKeys(p).map(j => {
     const e = evaluate(p, j, raw);
     return `<button type="button" data-job="${j}" aria-pressed="${state.lens === j}">
       <span class="jn">${codeLabel(lensCode(p, j))}${j === p.job ? '<span class="tag">담당</span>' : ''}</span>
