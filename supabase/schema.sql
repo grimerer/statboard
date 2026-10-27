@@ -46,3 +46,8 @@ create policy "demo update job" on public.personnel for update to anon, authenti
 revoke insert, update, delete on public.personnel from anon, authenticated;
 grant update (job) on public.personnel to anon, authenticated;
 revoke update on public.activities from anon, authenticated;
+
+-- 담당 직무(duty): 비교 집단 기준. 특기(specialty)는 검색·표시용
+alter table public.personnel add column if not exists duty text check (duty in ('admin','maint','signal','cmd'));
+alter table public.personnel add column if not exists default_duty text check (default_duty in ('admin','maint','signal','cmd'));
+grant update (duty) on public.personnel to anon, authenticated;
