@@ -148,6 +148,8 @@ tr.flash td{background:color-mix(in srgb,var(--xp) 12%,transparent)}
 .preview .split{color:var(--muted);margin-top:2px}
 .preview .split b{color:var(--ink);font-weight:600}
 .preview .off{text-decoration:line-through;opacity:.7}
+.dfields{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.dfields .field{margin:0}
 .box .btn.primary{width:100%;padding:11px;font-size:14px}
 .log{list-style:none;margin:0;padding:0;display:grid}
 .log li{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;padding:9px 0;border-top:1px solid var(--line);align-items:center}
@@ -283,11 +285,12 @@ table.rules th.cur{color:var(--accent)}
               <label class="label" for="fType">활동 유형</label>
               <select id="fType"></select>
             </div>
-            <div class="field">
+            <div class="dfields" id="detailFields" hidden></div>
+            <div class="field" id="scaleField">
               <span class="label">업무 규모</span>
               <div class="seg" id="fScale" role="group" aria-label="업무 규모"></div>
             </div>
-            <div class="field">
+            <div class="field" id="roleField">
               <span class="label">역할</span>
               <div class="seg" id="fRole" role="group" aria-label="역할"></div>
             </div>
@@ -371,8 +374,53 @@ const TYPES = [
   {id:'collab',   g:'common', n:'협업 과제 지원',       r:{comm:.7,plan:.3},         hl:45,  aff:['common']},
   {id:'volunteer',g:'common', n:'봉사활동·대민지원',    r:{serve:.8,comm:.2},        hl:45,  aff:['common']},
   {id:'self',     g:'common', n:'체력·자기계발 활동',   r:{self:1},                  hl:45,  aff:['common','infantry']},
-  {id:'edu',      g:'common', n:'전문교육 이수',        r:{tech:.5,self:.5},         hl:365, aff:['maint','signal']},
-  {id:'cert',     g:'common', n:'자격증 취득',          r:{tech:.4,self:.6},         hl:365, aff:[]}];
+  {id:'edu',      g:'common', n:'전문교육 이수',        r:{tech:.5,self:.5},         hl:365, aff:['maint','signal'], detail:'edu'},
+  {id:'cert',     g:'common', n:'자격증 취득',          r:{tech:.4,self:.6},         hl:365, aff:[], detail:'cert'},
+  {id:'pt',       g:'common', n:'체력검정 (연 1회)',    r:{self:1},                  hl:365, aff:[], detail:'pt', latestOnly:true, noSeed:true},
+  {id:'shoot',    g:'common', n:'사격 (정기)',          r:{self:.7,tech:.3},         hl:180, aff:[], detail:'shoot', latestOnly:true, noSeed:true}];
+// 세부 입력이 있는 활동: 규모·역할 대신 결과를 입력하고, 결과로 활동 점수를 계산
+const GRADE5 = ['특급','1급','2급','3급','불합격'];
+const DETAILS = {
+  pt: {
+    fields: [
+      { k:'run',    n:'3km 달리기',   opts: GRADE5, def:'1급' },
+      { k:'situp',  n:'윗몸일으키기', opts: GRADE5, def:'1급' },
+      { k:'pushup', n:'팔굽혀펴기',   opts: GRADE5, def:'1급' }],
+    pts: { '특급':8, '1급':6, '2급':4, '3급':2, '불합격':0 },
+    score(d){ return this.fields.reduce((s,f) => s + this.pts[d[f.k]], 0); },
+    total(d){ return GRADE5[Math.max(...this.fields.map(f => GRADE5.indexOf(d[f.k])))]; },
+    calc(d){ return this.fields.map(f => this.pts[d[f.k]]).join(' + '); },
+    summary(d){ return `달리기 ${d.run} · 윗몸 ${d.situp} · 팔굽혀 ${d.pushup} (종합 ${this.total(d)})`; },
+    note: '종목별 특급 8 · 1급 6 · 2급 4 · 3급 2 · 불합격 0점이에요. 종합 등급은 가장 낮은 종목 기준이고, 가장 최근 검정 결과만 점수에 반영돼요.' },
+  shoot: {
+    fields: [{ k:'grade', n:'사격 결과', opts:['특등사수','1급','2급','3급','불합격'], def:'1급' }],
+    pts: { '특등사수':12, '1급':9, '2급':6, '3급':3, '불합격':0 },
+    score(d){ return this.pts[d.grade]; },
+    calc(d){ return `${this.pts[d.grade]}`; },
+    summary(d){ return `사격 ${d.grade}`; },
+    note: '특등사수 12 · 1급 9 · 2급 6 · 3급 3 · 불합격 0점이에요. 가장 최근 사격 결과만 점수에 반영돼요.' },
+  cert: {
+    fields: [
+      { k:'kind',  n:'자격 종류', opts:['국가기술','국가전문','공인민간','민간'], def:'국가기술' },
+      { k:'level', n:'등급',      opts:['기술사·기능장','기사','산업기사','기능사','등급 없음'], def:'기능사' }],
+    base: { '기술사·기능장':20, '기사':14, '산업기사':10, '기능사':7, '등급 없음':5 },
+    mult: { '국가기술':1, '국가전문':1, '공인민간':.8, '민간':.5 },
+    score(d){ return Math.round(this.base[d.level] * this.mult[d.kind] * 10) / 10; },
+    calc(d){ return `${this.base[d.level]} × ${this.mult[d.kind]}`; },
+    summary(d){ return `${d.kind} · ${d.level}`; },
+    note: '등급 점수(기술사·기능장 20 · 기사 14 · 산업기사 10 · 기능사 7 · 등급 없음 5)에 자격 종류 배수(국가 1 · 공인민간 0.8 · 민간 0.5)를 곱해요.' },
+  edu: {
+    fields: [
+      { k:'weeks', n:'교육 기간', opts:['1주 이하','2~4주','5~8주','9주 이상'], def:'2~4주' },
+      { k:'grade', n:'성적',      opts:['최우수','우수','수료','미수료'], def:'수료' }],
+    base: { '1주 이하':3, '2~4주':6, '5~8주':10, '9주 이상':14 },
+    mult: { '최우수':1.5, '우수':1.2, '수료':1, '미수료':0 },
+    score(d){ return Math.round(this.base[d.weeks] * this.mult[d.grade] * 10) / 10; },
+    calc(d){ return `${this.base[d.weeks]} × ${this.mult[d.grade]}`; },
+    summary(d){ return `${d.weeks} · ${d.grade}`; },
+    note: '기간 점수(1주 이하 3 · 2~4주 6 · 5~8주 10 · 9주 이상 14)에 성적 배수(최우수 1.5 · 우수 1.2 · 수료 1 · 미수료 0)를 곱해요.' }};
+const detailOf = t => t && t.detail ? DETAILS[t.detail] : null;
+const actLabel = a => { const D = detailOf(TYPE[a.type]); return D && a.detail ? D.summary(a.detail) : `${SCALES[a.scale] ? SCALES[a.scale].n : '-'} · ${ROLES[a.role] ? ROLES[a.role].n : '-'}`; };
 const TYPE = Object.fromEntries(TYPES.map(t => [t.id, t]));
 const SCALES = {daily:{n:'일상',p:1},normal:{n:'일반',p:3},important:{n:'중요',p:7},major:{n:'대형',p:15}};
 const ROLES = {lead:{n:'주관',m:1.5},part:{n:'참여',m:1},sup:{n:'보조',m:.5}};
@@ -393,7 +441,7 @@ function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a
 function pickW(rng, entries){ const tot = entries.reduce((s,e)=>s+e[1],0); let x = rng()*tot; for (const [v,w] of entries){ if((x-=w) < 0) return v; } return entries[entries.length-1][0]; }
 
 const state = { people:[], acts:[], offset:0, mode:'job', fUnit:'1중대', fJob:'admin', sel:0, lens:'admin',
-  form:{type:'eventdoc', scale:'major', role:'lead'}, busy:false };
+  form:{type:'eventdoc', scale:'major', role:'lead', detail:{}}, busy:false };
 
 // ---------- 데이터: Supabase(설정 시) 또는 로컬 시드 ----------
 const KST = 9 * 3600e3;
@@ -416,13 +464,13 @@ async function loadRemote(){
   const people = await api('personnel?select=*&order=id');
   const acts = [];
   for (let from = 0; ; from += 1000){
-    const page = await api(`activities?select=id,personnel_id,type,scale,role,points,occurred_at,is_seed&order=id&offset=${from}&limit=1000`);
+    const page = await api(`activities?select=id,personnel_id,type,scale,role,points,detail,occurred_at,is_seed&order=id&offset=${from}&limit=1000`);
     acts.push(...page); if (page.length < 1000) break;
   }
   state.people = people.map(r => ({ id:r.id, name:r.name, rank:r.rank, unit:r.unit, spec:r.specialty, job:r.job,
     defaultJob:r.default_job, baseJob:r.base_job, legacy:r.legacy_xp, statBonus:r.stat_bonus || {} }));
-  state.acts = acts.filter(r => TYPE[r.type] && SCALES[r.scale] && ROLES[r.role]).map(r => ({ id:r.id, pid:r.personnel_id,
-    type:r.type, scale:r.scale, role:r.role, points:+r.points, day:dayFrom(r.occurred_at), seed:r.is_seed }));
+  state.acts = acts.filter(r => TYPE[r.type] && (r.detail || (SCALES[r.scale] && ROLES[r.role]))).map(r => ({ id:r.id, pid:r.personnel_id,
+    type:r.type, scale:r.scale, role:r.role, points:+r.points, detail:r.detail || null, day:dayFrom(r.occurred_at), seed:r.is_seed }));
   state.offset = 0;
 }
 function setStatus(mode){
@@ -450,7 +498,7 @@ function seed(){
     people.push(p);
     const count = i === 0 ? 16 : 22 + Math.floor(rng()*24);
     const typeW = TYPES.map(t => [t.id,
-      t.aff.includes(job) ? 5 : t.aff.includes(spec) ? 3.5 : t.aff.includes('common') ? 1.6 : (t.id === 'edu' || t.id === 'cert') ? .4 : .5]);
+      t.noSeed ? 0 : t.aff.includes(job) ? 5 : t.aff.includes(spec) ? 3.5 : t.aff.includes('common') ? 1.6 : (t.id === 'edu' || t.id === 'cert') ? .4 : .5]);
     for (let c = 0; c < count; c++){
       const type = pickW(rng, typeW);
       const long = type === 'edu' || type === 'cert';
@@ -483,8 +531,12 @@ function statXP(p, k){
 }
 function rawScores(p){
   const out = Object.fromEntries(STATS.map(s => [s.k, 0]));
+  // 체력검정·사격처럼 정기 측정하는 활동은 가장 최근 결과만 반영
+  const latest = {};
+  for (const a of actsOf(p.id)) if (TYPE[a.type].latestOnly && a.day <= state.offset && (!latest[a.type] || a.day >= latest[a.type].day)) latest[a.type] = a;
   for (const a of actsOf(p.id)){
     const age = state.offset - a.day; if (age < 0) continue;
+    if (TYPE[a.type].latestOnly && latest[a.type] !== a) continue;
     const t = TYPE[a.type], decay = Math.pow(.5, age / t.hl);
     for (const k in t.r) out[k] += a.points * t.r[k] * decay;
   }
@@ -643,7 +695,7 @@ function renderLog(p, freshIdx){
     const t = TYPE[a.type], remain = Math.round(Math.pow(.5, (state.offset - a.day) / t.hl) * 100);
     return `<li class="${a.i === freshIdx ? 'fresh' : ''}">
       <span class="d mono">${fmtDay(a.day)}</span>
-      <span><span class="t">${t.n}</span><br><span class="s">${SCALES[a.scale].n} · ${ROLES[a.role].n}</span></span>
+      <span><span class="t">${t.n}</span><br><span class="s">${actLabel(a)}</span></span>
       <span class="x mono"><b>+${Math.round(a.points * XP_PER_POINT)} XP</b><span class="muted">반영 ${remain}%</span></span></li>`;
   }).join('');
 }
@@ -691,14 +743,27 @@ function renderDate(){
   const d = new Date(BASE_MS + state.offset * 864e5);
   $('#simDate').innerHTML = `기준일 ${d.getUTCFullYear()}.${String(d.getUTCMonth()+1).padStart(2,'0')}.${String(d.getUTCDate()).padStart(2,'0')}` + (state.offset ? ` <b>+${state.offset}일</b>` : '');
 }
+function formPoints(){
+  const D = detailOf(TYPE[state.form.type]);
+  return D ? D.score(state.form.detail) : SCALES[state.form.scale].p * ROLES[state.form.role].m;
+}
+function renderDetailFields(){
+  const D = detailOf(TYPE[state.form.type]), box = $('#detailFields');
+  $('#scaleField').hidden = $('#roleField').hidden = !!D;
+  box.hidden = !D;
+  if (!D){ box.innerHTML = ''; state.form.detail = {}; return; }
+  state.form.detail = Object.fromEntries(D.fields.map(f => [f.k, f.def]));
+  box.innerHTML = D.fields.map(f => `<div class="field"><label class="label" for="d_${f.k}">${f.n}</label><select id="d_${f.k}" data-k="${f.k}">${f.opts.map(o => `<option${o === f.def ? ' selected' : ''}>${o}</option>`).join('')}</select></div>`).join('');
+}
 function renderPreview(){
-  const p = sel(), t = TYPE[state.form.type], pts = SCALES[state.form.scale].p * ROLES[state.form.role].m, xp = Math.round(pts * XP_PER_POINT);
+  const p = sel(), t = TYPE[state.form.type], D = detailOf(t), pts = formPoints(), xp = Math.round(pts * XP_PER_POINT);
   const w = wOf(tierOf(p), state.lens);
   const split = STATS.filter(s => t.r[s.k]).map(s => w[s.k] ? `<b>${s.n} +${Math.round(xp * t.r[s.k])}</b>` : `<span class="off">${s.n} +${Math.round(xp * t.r[s.k])}</span>`).join(' · ');
   const anyOff = STATS.some(s => t.r[s.k] && !w[s.k]);
   $('#preview').innerHTML = `<span class="label" style="margin:0">예상 획득 · ${p.name} ${p.rank}</span><div class="xp">+${xp} XP</div>
     <div class="split">${split}</div>
-    <div class="split">활동 점수 ${SCALES[state.form.scale].p} × ${ROLES[state.form.role].m} = ${pts} · 반감기 ${t.hl}일${t.hl > 45 ? ' (장기 반영)' : ''}</div>
+    <div class="split">${D ? `${D.summary(state.form.detail)} → 활동 점수 ${D.calc(state.form.detail)} = ${pts}` : `활동 점수 ${SCALES[state.form.scale].p} × ${ROLES[state.form.role].m} = ${pts}`} · 반감기 ${t.hl}일${t.hl > 45 ? ' (장기 반영)' : ''}</div>
+    ${D ? `<div class="split">${D.note}</div>` : ''}
     ${anyOff ? `<div class="split">취소선 능력치는 XP·레벨에만 쌓이고, ${TIERS[tierOf(p)]} ${JOBS[state.lens].n} 점수에는 반영되지 않아요.</div>` : ''}`;
 }
 function renderAll(){
@@ -784,7 +849,8 @@ function ensureSelectionInRoster(){
   }
 }
 
-$('#fType').addEventListener('change', e => { state.form.type = e.target.value; renderPreview(); });
+$('#fType').addEventListener('change', e => { state.form.type = e.target.value; renderDetailFields(); renderPreview(); });
+$('#detailFields').addEventListener('change', e => { const k = e.target.dataset.k; if (!k) return; state.form.detail[k] = e.target.value; renderPreview(); });
 $('#fUnit').addEventListener('change', e => { state.fUnit = e.target.value; ensureSelectionInRoster(); renderAll(); });
 $('#fJob').addEventListener('change', e => { state.fJob = e.target.value; ensureSelectionInRoster(); renderAll(); });
 $('#modeSeg').addEventListener('click', e => {
@@ -816,12 +882,13 @@ $('#actForm').addEventListener('submit', e => {
   e.preventDefault(); if (state.busy) return;
   state.busy = true;
   const p = sel(), before = snap(p, state.lens);
-  const { type, scale, role } = state.form, points = SCALES[scale].p * ROLES[role].m;
-  const act = { pid:p.id, type, scale, role, points, day: state.offset, seed:false };
+  const type = state.form.type, D = detailOf(TYPE[type]), points = formPoints();
+  const scale = D ? null : state.form.scale, role = D ? null : state.form.role, detail = D ? { ...state.form.detail } : null;
+  const act = { pid:p.id, type, scale, role, points, detail, day: state.offset, seed:false };
   state.acts.push(act);
-  save('activities', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ personnel_id:p.id, type, scale, role, points, occurred_at: dateFrom(state.offset) }) }, r => { act.id = r && r[0] && r[0].id; });
+  save('activities', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ personnel_id:p.id, type, scale, role, points, detail, occurred_at: dateFrom(state.offset) }) }, r => { act.id = r && r[0] && r[0].id; });
   const after = snap(p, state.lens);
-  toast(`+${Math.round(points * XP_PER_POINT)} XP · ${TYPE[type].n} (${SCALES[scale].n}·${ROLES[role].n})`);
+  toast(`+${Math.round(points * XP_PER_POINT)} XP · ${TYPE[type].n} (${actLabel(act)})`);
   animateTo(before, after, { xp:true, flash:true, freshIdx: state.acts.length - 1 });
 });
 $('#skipBtn').addEventListener('click', () => {
@@ -857,7 +924,7 @@ $('#resetBtn').addEventListener('click', async () => {
 });
 
 async function boot(){
-  buildControls();
+  buildControls(); renderDetailFields();
   if (REMOTE){
     setStatus('loading');
     try { await loadRemote(); setStatus(state.people.length ? 'remote' : 'error'); }
