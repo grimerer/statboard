@@ -198,6 +198,60 @@ table.rules th.cur{color:var(--accent)}
 @media (max-width:780px){.statcard{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:600px){.hero{grid-template-columns:minmax(0,1fr)} .scorebox{text-align:left} .rankline{justify-content:flex-start} .scorebox .big{font-size:54px}}
 @media (max-width:440px){.lens-grid{grid-template-columns:minmax(0,1fr)}}
+.toprow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px 20px;flex-wrap:wrap}
+.nav{display:flex;gap:2px;background:var(--surface-2);padding:3px;border-radius:8px}
+.nav a{padding:7px 14px;border-radius:6px;color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;white-space:nowrap}
+.nav a:hover{color:var(--ink)}
+.nav a[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.view{display:grid;gap:16px}
+.subtabs{display:flex;gap:6px;flex-wrap:wrap}
+.subtabs button{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 14px;font-size:13px;color:var(--muted)}
+.subtabs button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.board{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.posts{list-style:none;margin:0;padding:0;display:grid}
+.post{border-top:1px solid var(--line);padding:12px 2px}
+.post:first-child{border-top:0}
+.post summary{cursor:pointer;list-style:none;display:flex;gap:8px 10px;align-items:baseline;flex-wrap:wrap}
+.post summary::-webkit-details-marker{display:none}
+.post .pt{font-weight:600}
+.post .pm{font-size:12px;color:var(--muted)}
+.post .pin,.post .tg{font-size:11px;border:1px solid currentColor;border-radius:99px;padding:0 7px;white-space:nowrap}
+.post .pin{color:var(--xp)} .post .tg{color:var(--accent)}
+.post .pb{white-space:pre-wrap;margin:8px 0;line-height:1.65}
+.post .pa{display:flex;gap:6px;flex-wrap:wrap}
+.btn.sm{padding:4px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.form{display:grid;gap:8px}
+.form input[type=text],.form textarea{width:100%;font:inherit;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.form textarea{min-height:130px;resize:vertical}
+.form .label{margin:4px 0 0}
+.chk{display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer}
+.chk input{accent-color:var(--accent)}
+.toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+.toolbar h3{margin:0}
+.toolbar input[type=search]{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit}
+.toolbar select{width:auto}
+.adm-tbl{min-width:620px}
+.adm-tbl td,.adm-tbl th{padding:6px}
+.adm-tbl select,.adm-tbl input[type=number]{padding:4px 6px;font-size:13px;width:auto}
+.adm-tbl input[type=number]{width:72px;text-align:right;font:inherit;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px}
+.adm-tbl tr.off td{opacity:.5}
+.wgrid input{width:58px;text-align:right;font:inherit;padding:3px 5px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:5px}
+.sum.bad{color:var(--down)}
+.addgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;align-items:end}
+.addgrid input{width:100%;font:inherit;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.kpi b{font-family:var(--f-display);font-weight:400;font-size:28px;display:block;line-height:1.15}
+.kpi span{font-size:12px;color:var(--muted)}
+.bars{display:grid;gap:7px}
+.bar{display:grid;grid-template-columns:96px minmax(0,1fr) 52px;gap:8px;align-items:center;font-size:12.5px}
+.bar .t{height:10px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.bar .t i{display:block;height:100%;background:var(--accent);border-radius:inherit}
+.bar .mono{text-align:right}
+.duo2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+@media (max-width:900px){.board,.duo2{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -205,9 +259,16 @@ table.rules th.cur{color:var(--accent)}
 
 <div class="app">
   <header class="top">
+    <div class="toprow">
     <div class="brand">
       <h1>능력치 보드</h1>
       <p>활동을 기록하면 능력치가 오르고, 같은 집단 안에서 100점 만점으로 환산돼요. 데모용 가상 인원 120명.</p>
+    </div>
+    <nav class="nav" aria-label="메뉴">
+      <a href="#" data-view="main" aria-current="page">능력치 보드</a>
+      <a href="#board" data-view="board">게시판</a>
+      <a href="#admin" data-view="admin">관리</a>
+    </nav>
     </div>
     <div class="sim">
       <span class="status" id="dbStatus">불러오는 중…</span>
@@ -217,7 +278,7 @@ table.rules th.cur{color:var(--accent)}
     </div>
   </header>
 
-  <div class="layout">
+  <div class="layout" id="viewMain">
     <aside class="panel roster" aria-label="인원 명부">
       <div>
         <span class="label">비교 집단</span>
@@ -325,6 +386,96 @@ table.rules th.cur{color:var(--accent)}
       </section>
     </main>
   </div>
+
+  <section class="view" id="viewBoard" hidden>
+    <div class="subtabs" id="boardTabs" role="group" aria-label="게시판 종류">
+      <button type="button" data-b="notice">공지사항</button>
+      <button type="button" data-b="free">자유·건의</button>
+      <button type="button" data-b="praise">칭찬·추천</button>
+      <button type="button" data-b="tip">팁</button>
+    </div>
+    <div class="board">
+      <section class="panel box">
+        <h3 id="boardTitle">공지사항</h3>
+        <p class="note" id="boardDesc" style="margin:0 0 8px"></p>
+        <ul class="posts" id="posts"></ul>
+      </section>
+      <section class="panel box">
+        <h3>글쓰기</h3>
+        <form class="form" id="postForm">
+          <label class="label" for="pfTitle">제목</label>
+          <input type="text" id="pfTitle" maxlength="120" required>
+          <div id="pfTargetWrap" hidden>
+            <label class="label" for="pfTarget">추천할 인원</label>
+            <input type="text" id="pfTarget" list="peopleList" placeholder="이름을 입력하고 목록에서 고르세요" autocomplete="off">
+            <datalist id="peopleList"></datalist>
+          </div>
+          <label class="label" for="pfBody">내용</label>
+          <textarea id="pfBody" maxlength="4000"></textarea>
+          <label class="label" for="pfAuthor">작성자</label>
+          <input type="text" id="pfAuthor" maxlength="40" placeholder="예: 1중대 행정반">
+          <label class="chk" id="pfAnonWrap"><input type="checkbox" id="pfAnon"> 익명으로 올리기</label>
+          <label class="chk" id="pfPinWrap"><input type="checkbox" id="pfPin"> 목록 맨 위에 고정</label>
+          <p class="note" id="pfHint" style="margin:0"></p>
+          <button class="btn primary" type="submit">올리기</button>
+        </form>
+      </section>
+    </div>
+  </section>
+
+  <section class="view" id="viewAdmin" hidden>
+    <div class="subtabs" id="adminTabs" role="group" aria-label="관리 메뉴">
+      <button type="button" data-a="people">인원 관리</button>
+      <button type="button" data-a="rules">평가 기준</button>
+      <button type="button" data-a="report">현황 리포트</button>
+    </div>
+    <div class="view" id="admPeople">
+      <section class="panel box">
+        <h3>인원 추가</h3>
+        <form class="addgrid" id="addForm">
+          <div><label class="label" for="afName">이름</label><input type="text" id="afName" maxlength="20" required></div>
+          <div><label class="label" for="afRank">계급</label><select id="afRank"></select></div>
+          <div><label class="label" for="afUnit">부대</label><select id="afUnit"></select></div>
+          <div><label class="label" for="afSpec">특기</label><select id="afSpec"></select></div>
+          <div><label class="label" for="afDuty">담당 직무</label><select id="afDuty"></select></div>
+          <button class="btn primary" type="submit">추가하기</button>
+        </form>
+      </section>
+      <section class="panel box">
+        <div class="toolbar">
+          <h3>인원 목록 <span class="muted mono" id="admCount"></span></h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="search" id="admQ" placeholder="이름·특기 검색" aria-label="인원 목록 검색">
+            <select id="admUnit" aria-label="부대 필터"></select>
+            <label class="chk"><input type="checkbox" id="admShowOff"> 전역자 포함</label>
+          </div>
+        </div>
+        <div class="tbl-wrap"><table class="adm-tbl"><thead><tr><th>이름</th><th>계급</th><th>부대</th><th>특기</th><th>담당 직무</th><th>분대장</th><th>상태</th></tr></thead><tbody id="admRows"></tbody></table></div>
+        <p class="note">값을 바꾸면 바로 저장돼요. 전역 처리한 인원은 명부와 순위 계산에서 빠지고, 복귀하면 다시 들어가요.</p>
+      </section>
+    </div>
+    <div class="view" id="admRules" hidden>
+      <section class="panel box">
+        <h3>계층·직무별 가중치</h3>
+        <p class="note" style="margin:0 0 10px">각 열의 합계가 100이어야 저장할 수 있어요. 0으로 두면 그 능력치는 해당 기준에서 반영하지 않아요.</p>
+        <div class="tbl-wrap"><table class="rules wgrid" id="wTable"></table></div>
+      </section>
+      <div class="duo2">
+        <section class="panel box"><h3>활동 유형별 반감기</h3><p class="note" style="margin:0 0 10px">점수가 절반으로 줄어드는 기간(일)이에요. 7일 이상으로 입력해 주세요.</p><div class="tbl-wrap"><table class="adm-tbl" id="hlTable" style="min-width:0"></table></div></section>
+        <section class="panel box"><h3>체력검정·사격 등급 점수</h3><p class="note" style="margin:0 0 10px">체력검정은 종목별 점수를 합산해요.</p><div class="tbl-wrap"><table class="adm-tbl" id="gradeTable" style="min-width:0"></table></div></section>
+      </div>
+      <div class="actions"><button class="btn" type="button" id="rulesDefault">기본값 불러오기</button><button class="btn primary" type="button" id="rulesSave">평가 기준 저장</button></div>
+    </div>
+    <div class="view" id="admReport" hidden>
+      <div class="kpis" id="kpis"></div>
+      <div class="duo2">
+        <section class="panel box"><h3>부대·직무별 평균 종합 점수</h3><p class="note" style="margin:0 0 8px">같은 직무·같은 계층끼리 비교한 점수의 평균이에요. 괄호는 인원 수예요.</p><div class="tbl-wrap"><table class="adm-tbl" id="avgTable"></table></div></section>
+        <section class="panel box"><h3>레벨 분포</h3><div class="bars" id="lvBars"></div></section>
+      </div>
+      <section class="panel box"><h3>월별 활동 기록</h3><div class="bars" id="monBars"></div></section>
+      <div class="actions"><button class="btn" type="button" id="csvActs">활동 기록 CSV 내려받기</button><button class="btn primary" type="button" id="csvPeople">인원 현황 CSV 내려받기</button></div>
+    </div>
+  </section>
 </div>
 
 <div class="toast" id="toast" role="status"></div>
@@ -395,7 +546,8 @@ const TYPES = [
   {id:'edu',      g:'common', n:'전문교육 이수',        r:{tech:.5,self:.5},         hl:365, aff:['maint','signal'], detail:'edu'},
   {id:'cert',     g:'common', n:'자격증 취득',          r:{tech:.4,self:.6},         hl:365, aff:[], detail:'cert'},
   {id:'pt',       g:'common', n:'체력검정 (연 1회)',    r:{self:1},                  hl:365, aff:[], detail:'pt', latestOnly:true, noSeed:true},
-  {id:'shoot',    g:'common', n:'사격 (정기)',          r:{self:.7,tech:.3},         hl:180, aff:[], detail:'shoot', latestOnly:true, noSeed:true}];
+  {id:'shoot',    g:'common', n:'사격 (정기)',          r:{self:.7,tech:.3},         hl:180, aff:[], detail:'shoot', latestOnly:true, noSeed:true},
+  {id:'praise',   g:'common', n:'칭찬·추천 받음',       r:{comm:1},                  hl:90,  aff:[], detail:'praise', noSeed:true, hidden:true}];
 // 세부 입력이 있는 활동: 규모·역할 대신 결과를 입력하고, 결과로 활동 점수를 계산
 const GRADE5 = ['특급','1급','2급','3급','불합격'];
 const DETAILS = {
@@ -409,14 +561,14 @@ const DETAILS = {
     total(d){ return GRADE5[Math.max(...this.fields.map(f => GRADE5.indexOf(d[f.k])))]; },
     calc(d){ return this.fields.map(f => this.pts[d[f.k]]).join(' + '); },
     summary(d){ return `달리기 ${d.run} · 윗몸 ${d.situp} · 팔굽혀 ${d.pushup} (종합 ${this.total(d)})`; },
-    note: '종목별 특급 8 · 1급 6 · 2급 4 · 3급 2 · 불합격 0점이에요. 종합 등급은 가장 낮은 종목 기준이고, 가장 최근 검정 결과만 점수에 반영돼요.' },
+    get note(){ return `종목별 ${GRADE5.map(g => `${g} ${this.pts[g]}`).join(' · ')}점이에요. 종합 등급은 가장 낮은 종목 기준이고, 가장 최근 검정 결과만 점수에 반영돼요.`; } },
   shoot: {
     fields: [{ k:'grade', n:'사격 결과', opts:['특등사수','1급','2급','3급','불합격'], def:'1급' }],
     pts: { '특등사수':12, '1급':9, '2급':6, '3급':3, '불합격':0 },
     score(d){ return this.pts[d.grade]; },
     calc(d){ return `${this.pts[d.grade]}`; },
     summary(d){ return `사격 ${d.grade}`; },
-    note: '특등사수 12 · 1급 9 · 2급 6 · 3급 3 · 불합격 0점이에요. 가장 최근 사격 결과만 점수에 반영돼요.' },
+    get note(){ return `${this.fields[0].opts.map(g => `${g} ${this.pts[g]}`).join(' · ')}점이에요. 가장 최근 사격 결과만 점수에 반영돼요.`; } },
   cert: {
     fields: [
       { k:'kind',  n:'자격 종류', opts:['국가기술','국가전문','공인민간','민간'], def:'국가기술' },
@@ -436,7 +588,13 @@ const DETAILS = {
     score(d){ return Math.round(this.base[d.weeks] * this.mult[d.grade] * 10) / 10; },
     calc(d){ return `${this.base[d.weeks]} × ${this.mult[d.grade]}`; },
     summary(d){ return `${d.weeks} · ${d.grade}`; },
-    note: '기간 점수(1주 이하 3 · 2~4주 6 · 5~8주 10 · 9주 이상 14)에 성적 배수(최우수 1.5 · 우수 1.2 · 수료 1 · 미수료 0)를 곱해요.' }};
+    note: '기간 점수(1주 이하 3 · 2~4주 6 · 5~8주 10 · 9주 이상 14)에 성적 배수(최우수 1.5 · 우수 1.2 · 수료 1 · 미수료 0)를 곱해요.' },
+  praise: {
+    fields: [],
+    score(){ return 1.5; },
+    calc(){ return '1.5'; },
+    summary(d){ return `${escH(d.from)} 추천 · ${escH(d.title)}`; },
+    note: '' }};
 const detailOf = t => t && t.detail ? DETAILS[t.detail] : null;
 const actLabel = a => { const D = detailOf(TYPE[a.type]); return D && a.detail ? D.summary(a.detail) : `${SCALES[a.scale] ? SCALES[a.scale].n : '-'} · ${ROLES[a.role] ? ROLES[a.role].n : '-'}`; };
 const TYPE = Object.fromEntries(TYPES.map(t => [t.id, t]));
@@ -484,14 +642,20 @@ async function api(path, opts = {}){
   return r.status === 204 || !ct.includes('json') ? null : r.json();
 }
 async function loadRemote(){
-  const people = await api('personnel?select=*&order=id');
+  const [people, settings, posts] = await Promise.all([
+    api('personnel?select=*&order=id'),
+    api('app_settings?select=config&id=eq.1').catch(() => []),
+    api('posts?select=*&order=created_at.desc&limit=500').catch(() => [])]);
+  if (settings && settings[0]) applyConfig(settings[0].config);
+  state.posts = posts || [];
   const acts = [];
   for (let from = 0; ; from += 1000){
     const page = await api(`activities?select=id,personnel_id,type,scale,role,points,detail,occurred_at,is_seed&order=id&offset=${from}&limit=1000`);
     acts.push(...page); if (page.length < 1000) break;
   }
-  state.people = people.map(r => ({ id:r.id, name:r.name, rank:r.rank, unit:r.unit, spec:r.specialty, job:r.duty || toDuty(r.job, r.specialty),
+  const mapped = people.map(r => ({ id:r.id, name:r.name, rank:r.rank, unit:r.unit, spec:r.specialty, active: r.active !== false, job:r.duty || toDuty(r.job, r.specialty),
     defaultJob:r.default_duty || toDuty(r.default_job, r.specialty), squadLeader: !!r.is_squad_leader, baseJob:r.base_job, legacy:r.legacy_xp, statBonus:r.stat_bonus || {} }));
+  state.people = mapped.filter(p => p.active); state.retired = mapped.filter(p => !p.active);
   state.acts = acts.filter(r => TYPE[r.type] && (r.detail || (SCALES[r.scale] && ROLES[r.role]))).map(r => ({ id:r.id, pid:r.personnel_id,
     type:r.type, scale:r.scale, role:r.role, points:+r.points, detail:r.detail || null, day:dayFrom(r.occurred_at), seed:r.is_seed }));
   state.offset = 0;
@@ -678,7 +842,7 @@ function tween(dur, fn, done){
   requestAnimationFrame(step);
 }
 const fmtDay = day => { const d = new Date(BASE_MS + day * 864e5); return `${d.getUTCMonth()+1}.${String(d.getUTCDate()).padStart(2,'0')}`; };
-const sel = () => state.people[state.sel];
+const sel = () => state.people.find(p => p.id === state.sel) || state.people[0];
 
 // 레이더: 반영 능력치 개수에 맞춰 축을 다시 그림
 const CX = 200, CY = 168, R = 100;
@@ -947,7 +1111,7 @@ function showLevelUp(before, after, statUps, onClose){
 function buildControls(){
   $('#fUnit').innerHTML = UNITS.map(u => `<option value="${u}">${u}</option>`).join('');
   $('#pJob').innerHTML = JOB_KEYS.map(j => `<option value="${j}">${JOBS[j].n}</option>`).join('');
-  $('#fType').innerHTML = Object.keys(STAT_GROUPS).map(g => `<optgroup label="${STAT_GROUPS[g]}">${TYPES.filter(t => t.g === g).map(t => `<option value="${t.id}">${t.n}</option>`).join('')}</optgroup>`).join('');
+  $('#fType').innerHTML = Object.keys(STAT_GROUPS).map(g => `<optgroup label="${STAT_GROUPS[g]}">${TYPES.filter(t => t.g === g && !t.hidden).map(t => `<option value="${t.id}">${t.n}</option>`).join('')}</optgroup>`).join('');
   syncPickers();
   const seg = (el, obj, key) => {
     el.innerHTML = Object.entries(obj).map(([k,v]) => `<button type="button" data-v="${k}" aria-pressed="${state.form[key] === k}">${v.n}${v.p ? ' ' + v.p : ' ×' + v.m}</button>`).join('');
@@ -1066,15 +1230,296 @@ $('#resetBtn').addEventListener('click', async () => {
   syncPickers(); renderAll(); toast('처음 상태로 되돌렸어요.');
 });
 
+// ---------- 상단 메뉴: 능력치 보드 / 게시판 / 관리 ----------
+const BOARDS = {
+  notice:{ n:'공지사항', d:'평가 일정과 기준 변경 같은 공지를 올려요.' },
+  free:{ n:'자유·건의', d:'평가 기준에 대한 의견이나 건의를 자유롭게 남겨요. 익명으로도 올릴 수 있어요.' },
+  praise:{ n:'칭찬·추천', d:'동료의 활동을 칭찬해요. 추천받은 인원은 소통/협업 능력치에 +15 XP를 받아요.' },
+  tip:{ n:'팁', d:'체력검정, 보고서 작성, 장비 정비 같은 노하우를 나눠요.' }};
+const RANKS = ['이병','일병','상병','병장','하사','중사','상사','원사','소위','중위','대위','소령'];
+Object.assign(state, { view:'main', board:'notice', adm:'people', posts:[], retired:[] });
+let localId = 1;
+const escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const fmtDate = iso => { const d = new Date(iso); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; };
+const allPeople = () => [...state.people, ...state.retired];
+const opt = (list, cur) => list.map(([v, n]) => `<option value="${escH(v)}"${v === cur ? ' selected' : ''}>${escH(n)}</option>`).join('');
+const viewFromHash = () => location.hash === '#board' ? 'board' : location.hash === '#admin' ? 'admin' : 'main';
+function setView(v){
+  state.view = v;
+  document.querySelectorAll('.nav a').forEach(a => a.dataset.view === v ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  $('#viewMain').hidden = v !== 'main'; $('#viewBoard').hidden = v !== 'board'; $('#viewAdmin').hidden = v !== 'admin';
+  $('#skipBtn').hidden = $('#resetBtn').hidden = $('#simDate').hidden = v !== 'main';
+  if (v === 'board') renderBoard();
+  else if (v === 'admin') renderAdmin();
+  else renderAll();
+}
+window.addEventListener('hashchange', () => setView(viewFromHash()));
+
+// 게시판
+function renderBoard(){
+  document.querySelectorAll('#boardTabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.b === state.board));
+  const B = BOARDS[state.board];
+  $('#boardTitle').textContent = B.n; $('#boardDesc').textContent = B.d;
+  $('#pfTargetWrap').hidden = state.board !== 'praise';
+  $('#pfAnonWrap').hidden = state.board !== 'free';
+  $('#pfPinWrap').hidden = state.board !== 'notice';
+  $('#pfHint').textContent = state.board === 'praise' ? '추천을 올리면 그 인원에게 칭찬·추천 활동(소통/협업 +15 XP)이 기록돼요.' : state.board === 'free' ? '익명으로 올리면 작성자 칸은 표시되지 않아요.' : '';
+  $('#peopleList').innerHTML = state.people.map(p => `<option value="${escH(`${p.name} ${p.rank} (${p.unit})`)}">`).join('');
+  const list = state.posts.filter(p => p.board === state.board).sort((a, b) => (b.pinned - a.pinned) || (a.created_at < b.created_at ? 1 : -1));
+  $('#posts').innerHTML = list.length ? list.map(p => {
+    const t = p.target_id != null ? allPeople().find(x => x.id === p.target_id) : null;
+    return `<li class="post"><details><summary>${p.pinned ? '<span class="pin">고정</span>' : ''}<span class="pt">${escH(p.title)}</span>${t ? `<span class="tg">→ ${escH(t.name)} ${escH(t.rank)}</span>` : ''}<span class="pm">${p.anonymous ? '익명' : escH(p.author)} · ${fmtDate(p.created_at)}</span></summary>
+      ${p.body ? `<div class="pb">${escH(p.body)}</div>` : ''}
+      <div class="pa">${t && state.people.includes(t) ? `<button type="button" class="btn sm" data-goto="${t.id}">${escH(t.name)} 능력치 보기</button>` : ''}${p.is_seed ? '' : `<button type="button" class="btn sm" data-del="${p.id}">삭제</button>`}</div></details></li>`;
+  }).join('') : `<li class="hint" style="padding:8px 0">아직 글이 없어요. 오른쪽에서 첫 글을 올려보세요.</li>`;
+}
+$('#boardTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.board = b.dataset.b; renderBoard(); });
+let delArmed = null;
+$('#posts').addEventListener('click', async e => {
+  const g = e.target.closest('[data-goto]');
+  if (g){
+    const p = state.people.find(x => x.id === +g.dataset.goto); if (!p) return;
+    Object.assign(state, { sel:p.id, lens:p.job, fUnit:p.unit, fJob:p.job, q:'' });
+    if (state.fTier !== 'all') state.fTier = tierOf(p);
+    $('#q').value = ''; syncPickers(); location.hash = '';
+    return;
+  }
+  const d = e.target.closest('[data-del]'); if (!d) return;
+  if (delArmed !== d.dataset.del){
+    delArmed = d.dataset.del; d.textContent = '한 번 더 누르면 삭제';
+    setTimeout(() => { if (delArmed === d.dataset.del){ delArmed = null; d.textContent = '삭제'; } }, 4000);
+    return;
+  }
+  delArmed = null; const id = +d.dataset.del;
+  if (dbMode === 'remote'){
+    try { await api(`posts?id=eq.${id}`, { method:'DELETE' }); }
+    catch (err){ console.error(err); toast('글을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+  }
+  state.posts = state.posts.filter(p => p.id !== id); renderBoard(); toast('글을 삭제했어요.');
+});
+$('#postForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const title = $('#pfTitle').value.trim(), body = $('#pfBody').value.trim();
+  if (!title){ toast('제목을 입력해 주세요.'); return; }
+  let target = null;
+  if (state.board === 'praise'){
+    const v = $('#pfTarget').value.trim();
+    target = state.people.find(p => `${p.name} ${p.rank} (${p.unit})` === v) || state.people.find(p => p.name === v);
+    if (!target){ toast('추천할 인원을 목록에서 골라주세요.'); return; }
+  }
+  const anon = state.board === 'free' && $('#pfAnon').checked;
+  const row = { board: state.board, title, body, author: anon ? '익명' : ($('#pfAuthor').value.trim() || '익명'), anonymous: anon,
+    pinned: state.board === 'notice' && $('#pfPin').checked, target_id: target ? target.id : null };
+  let saved = { ...row, id: -(localId++), created_at: new Date().toISOString(), is_seed: false };
+  if (dbMode === 'remote'){
+    try { const r = await api('posts', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify(row) }); saved = r[0]; }
+    catch (err){ console.error(err); toast('글을 올리지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+  }
+  state.posts.unshift(saved);
+  if (target){
+    const detail = { from: row.author, title };
+    const act = { pid: target.id, type:'praise', scale:null, role:null, points:1.5, detail, day: state.offset, seed:false };
+    state.acts.push(act);
+    save('activities', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ personnel_id: target.id, type:'praise', scale:null, role:null, points:1.5, detail, occurred_at: dateFrom(state.offset) }) }, r => { act.id = r && r[0] && r[0].id; });
+  }
+  e.target.reset(); renderBoard();
+  toast(target ? `${target.name} ${target.rank}에게 추천을 남겼어요. 소통/협업 +15 XP` : '글을 올렸어요.');
+});
+
+// 관리: 인원
+function renderAdmin(){
+  document.querySelectorAll('#adminTabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.a === state.adm));
+  $('#admPeople').hidden = state.adm !== 'people'; $('#admRules').hidden = state.adm !== 'rules'; $('#admReport').hidden = state.adm !== 'report';
+  if (state.adm === 'people') renderAdmPeople();
+  else if (state.adm === 'rules') renderAdmRules();
+  else renderReport();
+}
+$('#adminTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.adm = b.dataset.a; renderAdmin(); });
+function initAdminControls(){
+  $('#afRank').innerHTML = opt(RANKS.map(r => [r, r]), '이병');
+  $('#afUnit').innerHTML = opt(UNITS.map(u => [u, u]), UNITS[0]);
+  $('#afSpec').innerHTML = opt(SPEC_KEYS.map(k => [k, SPECS[k]]), 'admin');
+  $('#afDuty').innerHTML = opt(JOB_KEYS.map(k => [k, JOBS[k].n]), 'admin');
+  $('#admUnit').innerHTML = `<option value="">전체 부대</option>` + opt(UNITS.map(u => [u, u]), '');
+}
+function renderAdmPeople(){
+  const q = $('#admQ').value.trim(), u = $('#admUnit').value, off = $('#admShowOff').checked;
+  const list = (off ? allPeople() : state.people)
+    .filter(p => (!u || p.unit === u) && (!q || p.name.includes(q) || SPECS[p.spec].includes(q) || choOf(p.name).includes(q)))
+    .sort((a, b) => a.unit.localeCompare(b.unit) || a.name.localeCompare(b.name, 'ko'));
+  $('#admCount').textContent = `${list.length}명`;
+  $('#admRows').innerHTML = list.map(p => { const retired = state.retired.includes(p); return `<tr data-id="${p.id}" class="${retired ? 'off' : ''}">
+    <td>${escH(p.name)}</td>
+    <td><select data-f="rank" aria-label="계급">${opt(RANKS.map(r => [r, r]), p.rank)}</select></td>
+    <td><select data-f="unit" aria-label="부대">${opt(UNITS.map(x => [x, x]), p.unit)}</select></td>
+    <td><select data-f="spec" aria-label="특기">${opt(SPEC_KEYS.map(k => [k, SPECS[k]]), p.spec)}</select></td>
+    <td><select data-f="job" aria-label="담당 직무">${opt(JOB_KEYS.map(k => [k, JOBS[k].n]), p.job)}</select></td>
+    <td>${p.rank === '병장' ? `<input type="checkbox" data-f="sl" aria-label="분대장"${p.squadLeader ? ' checked' : ''}>` : '<span class="muted">–</span>'}</td>
+    <td><button type="button" class="btn sm" data-f="active">${retired ? '복귀' : '전역 처리'}</button></td></tr>`; }).join('');
+}
+const ADM_COL = { rank:'rank', unit:'unit', spec:'specialty', job:'duty', sl:'is_squad_leader' };
+$('#admRows').addEventListener('change', e => {
+  const f = e.target.dataset.f, tr = e.target.closest('tr'); if (!f || !tr) return;
+  const p = allPeople().find(x => x.id === +tr.dataset.id); if (!p) return;
+  const v = f === 'sl' ? e.target.checked : e.target.value;
+  if (f === 'rank') p.rank = v; else if (f === 'unit') p.unit = v; else if (f === 'spec') p.spec = v; else if (f === 'job') p.job = v; else p.squadLeader = v;
+  save(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ [ADM_COL[f]]: v }) });
+  if (f === 'rank') renderAdmPeople();
+  toast(`${p.name}의 정보를 저장했어요.`);
+});
+$('#admRows').addEventListener('click', e => {
+  const b = e.target.closest('[data-f="active"]'); if (!b) return;
+  const p = allPeople().find(x => x.id === +b.closest('tr').dataset.id); if (!p) return;
+  const retire = state.people.includes(p);
+  if (retire){
+    if (state.people.length <= 1) return;
+    state.people = state.people.filter(x => x !== p); state.retired.push(p);
+    if (state.sel === p.id){ state.sel = state.people[0].id; state.lens = state.people[0].job; }
+  } else { state.retired = state.retired.filter(x => x !== p); state.people.push(p); }
+  save(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ active: !retire }) });
+  renderAdmPeople();
+  toast(retire ? `${p.name}을(를) 전역 처리했어요. 명부와 순위에서 빠져요.` : `${p.name}을(를) 복귀시켰어요.`);
+});
+$('#admQ').addEventListener('input', renderAdmPeople);
+$('#admUnit').addEventListener('change', renderAdmPeople);
+$('#admShowOff').addEventListener('change', renderAdmPeople);
+$('#addForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const name = $('#afName').value.trim();
+  if (!/^[가-힣A-Za-z ]{1,20}$/.test(name)){ toast('이름은 한글이나 영문으로 20자 이내로 입력해 주세요.'); return; }
+  const rank = $('#afRank').value, unit = $('#afUnit').value, spec = $('#afSpec').value, job = $('#afDuty').value;
+  const p = { id: -(localId++), name, rank, unit, spec, job, defaultJob: job, squadLeader: rank === '병장' && job === 'cmd', baseJob: TRACK_OF_SPEC[spec], legacy: 0, statBonus: {} };
+  if (dbMode === 'remote'){
+    try {
+      const r = await api('personnel', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ name, rank, unit, specialty: spec,
+        job: JOBS[job].t, default_job: JOBS[job].t, base_job: p.baseJob, duty: job, default_duty: job, legacy_xp: 0, is_squad_leader: p.squadLeader, is_seed: false }) });
+      p.id = r[0].id;
+    } catch (err){ console.error(err); toast('인원을 추가하지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+  }
+  state.people.push(p); $('#afName').value = ''; renderAdmPeople();
+  toast(`${name} ${rank}을(를) 추가했어요. 능력치 보드 명부에서 볼 수 있어요.`);
+});
+
+// 관리: 평가 기준 (가중치, 반감기, 등급 점수)
+const snapshotRules = () => JSON.parse(JSON.stringify({ weights: WEIGHTS, hl: Object.fromEntries(TYPES.map(t => [t.id, t.hl])), pt: DETAILS.pt.pts, shoot: DETAILS.shoot.pts }));
+const DEFAULTS = snapshotRules();
+function applyConfig(c){
+  if (!c) return;
+  if (c.weights) for (const t in WEIGHTS) for (const tr in WEIGHTS[t]) if (c.weights[t] && c.weights[t][tr]) WEIGHTS[t][tr] = { ...c.weights[t][tr] };
+  if (c.hl) for (const t of TYPES) if (c.hl[t.id] >= 7) t.hl = c.hl[t.id];
+  if (c.pt) Object.assign(DETAILS.pt.pts, c.pt);
+  if (c.shoot) Object.assign(DETAILS.shoot.pts, c.shoot);
+}
+let draft = null;
+const sumW = w => Math.round(Object.values(w).reduce((a, b) => a + (+b || 0), 0) * 10) / 10;
+function renderAdmRules(){
+  if (!draft) draft = snapshotRules();
+  const cols = []; for (const t in TIERS) for (const tr in TRACKS) cols.push({ t, tr });
+  let h = `<thead><tr><th>능력치</th>${cols.map(c => `<th>${TIERS[c.t]} ${TRACKS[c.tr]}</th>`).join('')}</tr></thead><tbody>`;
+  for (const g of Object.keys(STAT_GROUPS)){
+    h += `<tr class="grp ${g === 'common' ? 'common' : ''}"><td colspan="${cols.length + 1}">${STAT_GROUPS[g]} 능력치</td></tr>`;
+    for (const st of STATS.filter(x => x.g === g))
+      h += `<tr><td>${st.n}</td>${cols.map(c => `<td class="num"><input type="number" min="0" max="100" step="1" aria-label="${TIERS[c.t]} ${TRACKS[c.tr]} ${st.n}" data-t="${c.t}" data-tr="${c.tr}" data-k="${st.k}" value="${draft.weights[c.t][c.tr][st.k] || 0}"></td>`).join('')}</tr>`;
+  }
+  h += `<tr class="grp"><td>합계</td>${cols.map(c => { const s = sumW(draft.weights[c.t][c.tr]); return `<td class="num mono sum ${s === 100 ? '' : 'bad'}" data-sum="${c.t}-${c.tr}">${s}</td>`; }).join('')}</tr></tbody>`;
+  $('#wTable').innerHTML = h;
+  $('#hlTable').innerHTML = `<thead><tr><th>활동 유형</th><th class="num">반감기(일)</th></tr></thead><tbody>${TYPES.map(t => `<tr><td>${t.n}</td><td class="num"><input type="number" min="7" max="1095" step="1" aria-label="${t.n} 반감기" data-hl="${t.id}" value="${draft.hl[t.id]}"></td></tr>`).join('')}</tbody>`;
+  const SG = DETAILS.shoot.fields[0].opts;
+  $('#gradeTable').innerHTML = `<thead><tr><th>체력검정</th><th class="num">종목별 점수</th><th>사격</th><th class="num">점수</th></tr></thead><tbody>${GRADE5.map((g, i) => `<tr><td>${g}</td><td class="num"><input type="number" min="0" max="10" step="0.5" aria-label="체력검정 ${g} 점수" data-pt="${g}" value="${draft.pt[g]}"></td><td>${SG[i]}</td><td class="num"><input type="number" min="0" max="30" step="0.5" aria-label="사격 ${SG[i]} 점수" data-sh="${SG[i]}" value="${draft.shoot[SG[i]]}"></td></tr>`).join('')}</tbody>`;
+  updateRulesSave();
+}
+function updateRulesSave(){
+  let ok = true;
+  for (const t in draft.weights) for (const tr in draft.weights[t]) if (sumW(draft.weights[t][tr]) !== 100) ok = false;
+  $('#rulesSave').disabled = !ok;
+  $('#rulesSave').title = ok ? '' : '모든 열의 합계를 100으로 맞춰야 저장할 수 있어요';
+}
+$('#admRules').addEventListener('input', e => {
+  const el = e.target, v = +el.value;
+  if (el.dataset.k){
+    const w = draft.weights[el.dataset.t][el.dataset.tr];
+    if (v > 0) w[el.dataset.k] = v; else delete w[el.dataset.k];
+    const s = sumW(w), cell = document.querySelector(`[data-sum="${el.dataset.t}-${el.dataset.tr}"]`);
+    cell.textContent = s; cell.classList.toggle('bad', s !== 100); updateRulesSave();
+  } else if (el.dataset.hl) draft.hl[el.dataset.hl] = v;
+  else if (el.dataset.pt) draft.pt[el.dataset.pt] = Math.max(0, Math.min(10, v || 0));
+  else if (el.dataset.sh) draft.shoot[el.dataset.sh] = Math.max(0, Math.min(30, v || 0));
+});
+$('#rulesSave').addEventListener('click', async () => {
+  const c = JSON.parse(JSON.stringify(draft));
+  for (const k in c.hl) if (!(c.hl[k] >= 7)) c.hl[k] = DEFAULTS.hl[k];
+  if (dbMode === 'remote'){
+    try { await api('app_settings?on_conflict=id', { method:'POST', headers:{ Prefer:'resolution=merge-duplicates' }, body: JSON.stringify({ id:1, config:c, updated_at:new Date().toISOString() }) }); }
+    catch (err){ console.error(err); toast('평가 기준을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+  }
+  applyConfig(c); draft = null; renderAdmRules();
+  toast('평가 기준을 저장했어요. 능력치 보드 점수에 바로 반영돼요.');
+});
+$('#rulesDefault').addEventListener('click', () => { draft = JSON.parse(JSON.stringify(DEFAULTS)); renderAdmRules(); toast('기본값을 불러왔어요. 저장을 눌러야 적용돼요.'); });
+
+// 관리: 현황 리포트
+function scoreAll(){
+  const keep = { mode: state.mode, fTier: state.fTier };
+  state.mode = 'job'; state.fTier = 'enlisted';
+  const raw = rawAll(), out = new Map();
+  for (const p of state.people) out.set(p.id, evaluate(p, p.job, raw));
+  Object.assign(state, keep);
+  return out;
+}
+function renderReport(){
+  const sc = scoreAll(), P = state.people, lv = p => levelOf(TOTAL_BASE, totalXP(p));
+  const avgOf = g => g.length ? (g.reduce((s, p) => s + sc.get(p.id).comp, 0) / g.length).toFixed(1) : '–';
+  const recent = state.acts.filter(a => a.day <= state.offset && a.day > state.offset - 30).length;
+  $('#kpis').innerHTML = [[`${P.length}명`, '현역 인원'], [`${state.retired.length}명`, '전역 처리'], [`${recent.toLocaleString()}건`, '최근 30일 활동'],
+    [avgOf(P), '평균 종합 점수'], [(P.reduce((s, p) => s + lv(p), 0) / P.length).toFixed(1), '평균 레벨']]
+    .map(([b, s]) => `<div class="kpi"><b class="mono">${b}</b><span>${s}</span></div>`).join('');
+  let h = `<thead><tr><th>부대</th>${JOB_KEYS.map(j => `<th class="num">${JOBS[j].n}</th>`).join('')}<th class="num">전체</th></tr></thead><tbody>`;
+  for (const u of UNITS){
+    const cells = JOB_KEYS.map(j => { const g = P.filter(p => p.unit === u && p.job === j); return g.length ? `${avgOf(g)} <span class="muted">(${g.length})</span>` : '–'; });
+    h += `<tr><td>${u}</td>${cells.map(c => `<td class="num mono">${c}</td>`).join('')}<td class="num mono">${avgOf(P.filter(p => p.unit === u))}</td></tr>`;
+  }
+  $('#avgTable').innerHTML = h + '</tbody>';
+  const lvs = {}; for (const p of P){ const L = lv(p); lvs[L] = (lvs[L] || 0) + 1; }
+  const maxL = Math.max(1, ...Object.values(lvs));
+  $('#lvBars').innerHTML = Object.keys(lvs).map(Number).sort((a, b) => a - b).map(L => `<div class="bar"><span>Lv.${L} <span class="muted">${titleOf(L)}</span></span><div class="t"><i style="width:${lvs[L] / maxL * 100}%"></i></div><span class="mono">${lvs[L]}명</span></div>`).join('');
+  const mon = {}; for (const a of state.acts){ if (a.day > state.offset) continue; const k = dateFrom(a.day).slice(0, 7); mon[k] = (mon[k] || 0) + 1; }
+  const keys = Object.keys(mon).sort().slice(-7), maxM = Math.max(1, ...keys.map(k => mon[k]));
+  $('#monBars').innerHTML = keys.map(k => `<div class="bar"><span>${k.replace('-', '.')}</span><div class="t"><i style="width:${mon[k] / maxM * 100}%"></i></div><span class="mono">${mon[k]}건</span></div>`).join('');
+}
+function downloadCSV(name, rows){
+  const csv = '﻿' + rows.map(r => r.map(v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' })); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+$('#csvPeople').addEventListener('click', () => {
+  const sc = scoreAll(), raw = rawAll();
+  downloadCSV(`능력치보드_인원현황_${dateFrom(state.offset)}.csv`, [
+    ['이름','계급','계층','부대','특기','담당 직무','분대장','레벨','누적 XP','종합 점수(같은 직무·계층 비교)','집단 내 순위', ...STATS.map(s => `${s.n} 원점수`)],
+    ...state.people.map(p => { const e = sc.get(p.id); return [p.name, p.rank, TIERS[tierOf(p)], p.unit, SPECS[p.spec], JOBS[p.job].n, p.squadLeader ? 'O' : '',
+      levelOf(TOTAL_BASE, totalXP(p)), totalXP(p), e.comp.toFixed(1), `${e.rank}/${e.n}`, ...STATS.map(s => raw[p.id][s.k].toFixed(2))]; })]);
+  toast('인원 현황 CSV를 내려받았어요.');
+});
+$('#csvActs').addEventListener('click', () => {
+  const byId = new Map(allPeople().map(p => [p.id, p]));
+  const plain = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  downloadCSV(`능력치보드_활동기록_${dateFrom(state.offset)}.csv`, [
+    ['날짜','이름','계급','부대','활동 유형','세부','활동 점수','XP','시드 데이터'],
+    ...state.acts.filter(a => a.day <= state.offset).sort((a, b) => b.day - a.day).map(a => { const p = byId.get(a.pid) || {};
+      return [dateFrom(a.day), p.name, p.rank, p.unit, TYPE[a.type].n, plain(actLabel(a)), a.points, Math.round(a.points * XP_PER_POINT), a.seed ? 'O' : '']; })]);
+  toast('활동 기록 CSV를 내려받았어요.');
+});
+
 async function boot(){
-  buildControls(); renderDetailFields();
+  buildControls(); renderDetailFields(); initAdminControls();
   if (REMOTE){
     setStatus('loading');
     try { await loadRemote(); setStatus(state.people.length ? 'remote' : 'error'); }
     catch (err){ console.error(err); setStatus('error'); }
   } else setStatus('local');
   if (dbMode !== 'remote') seed();
-  syncPickers(); renderAll();
+  syncPickers(); setView(viewFromHash());
 }
 boot();
 })();
