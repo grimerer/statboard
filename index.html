@@ -64,6 +64,8 @@ select{font:inherit;background:var(--surface);color:var(--ink);border:1px solid 
 .pickers{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
 .roster-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .roster-head b{font-size:14px}
+.search input{width:100%;font:inherit;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.search input::placeholder{color:var(--muted)}
 .roster ul{list-style:none;margin:0;padding:0;display:grid;align-content:start;gap:2px;overflow:auto;flex:1 1 0;min-height:240px}
 .row{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 9px;border-radius:7px;width:100%;border:0;background:transparent;text-align:left}
 .row:hover{background:var(--surface-2)}
@@ -235,6 +237,7 @@ table.rules th.cur{color:var(--accent)}
         <div id="unitPick"><label class="label" for="fUnit">부대</label><select id="fUnit"></select></div>
         <div id="jobPick"><label class="label" for="fJob">담당 직무</label><select id="fJob"></select></div>
       </div>
+      <div class="search"><input id="q" type="search" placeholder="이름·계급·부대·특기 검색 (초성 가능)" aria-label="인원 검색" autocomplete="off"></div>
       <div class="roster-head"><b id="groupTitle"></b><span class="muted mono" id="groupCount"></span></div>
       <ul id="roster"></ul>
       <p class="hint" id="rosterHint"></p>
@@ -453,7 +456,7 @@ const titleOf = L => L < 5 ? '신입' : L < 10 ? '숙련' : L < 15 ? '전문가'
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
 function pickW(rng, entries){ const tot = entries.reduce((s,e)=>s+e[1],0); let x = rng()*tot; for (const [v,w] of entries){ if((x-=w) < 0) return v; } return entries[entries.length-1][0]; }
 
-const state = { people:[], acts:[], offset:0, mode:'job', fUnit:'1중대', fJob:'admin', fTier:'all', sel:0, lens:'admin',
+const state = { people:[], acts:[], offset:0, mode:'job', fUnit:'1중대', fJob:'admin', fTier:'all', q:'', sel:0, lens:'admin',
   form:{type:'eventdoc', scale:'major', role:'lead', detail:{}}, busy:false };
 
 // ---------- 데이터: Supabase(설정 시) 또는 로컬 시드 ----------
@@ -777,6 +780,24 @@ function rosterMembers(){
        : m === 'job' ? P.filter(x => matchCode(x, state.fJob))
        : P.filter(x => x.unit === state.fUnit && matchCode(x, state.fJob));
 }
+// 인원 검색: 이름(초성 포함), 계급, 부대, 특기, 담당 직무, 계층
+const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+const choOf = s => [...s].map(c => { const k = c.charCodeAt(0) - 0xAC00; return k >= 0 && k < 11172 ? CHO[Math.floor(k / 588)] : c; }).join('');
+const matchQ = (p, q) => `${p.name} ${p.rank} ${p.unit} 특기 ${SPECS[p.spec]} ${codeLabel(codeOf(p))} ${TIERS[tierOf(p)]}`.includes(q) || choOf(p.name).includes(q);
+function renderSearch(raw){
+  const hits = state.people.filter(p => matchQ(p, state.q)).sort((a,b) => a.name.localeCompare(b.name, 'ko'));
+  $('#groupTitle').textContent = `검색 결과 · ${state.q}`;
+  $('#groupCount').textContent = `${hits.length}명`;
+  $('#roster').innerHTML = hits.length ? hits.slice(0, 80).map(p => {
+    const e = evaluate(p, p.job, raw);
+    return `<li><button type="button" class="row" data-id="${p.id}" data-search="1" aria-current="${p.id === state.sel}">
+    <span class="rk mono">${e.rank}</span>
+    <span><span class="nm">${p.name} ${p.rank}</span><span class="mt">${p.unit} · ${codeLabel(codeOf(p))} · ${TIERS[tierOf(p)]} · 특기 ${SPECS[p.spec]}</span></span>
+    <span class="sc mono">${Math.round(e.comp)}</span>
+    <span class="lv mono">Lv.${levelOf(TOTAL_BASE, totalXP(p))}</span></button></li>`; }).join('')
+    : `<li class="hint" style="padding:8px">검색어에 맞는 인원이 없어요.</li>`;
+  $('#rosterHint').textContent = '검색 결과를 누르면 그 인원이 속한 비교 집단으로 이동해요. 왼쪽 숫자는 현재 비교 기준의 순위예요.';
+}
 function renderRoster(raw){
   const m = state.mode;
   $('#unitPick').hidden = m === 'job';
@@ -788,6 +809,7 @@ function renderRoster(raw){
   const opts = codes.map(c => `<option value="${c}">${codeLabel(c)}</option>`).join('');
   if (fj.dataset.opts !== opts){ fj.innerHTML = opts; fj.dataset.opts = opts; }
   fj.value = state.fJob;
+  if (state.q) return renderSearch(raw);
   $('#groupTitle').textContent = (m === 'unit' ? state.fUnit : m === 'job' ? codeLabel(state.fJob) : `${state.fUnit} ${codeLabel(state.fJob)}`) + (state.fTier !== 'all' ? ' · ' + TIERS[state.fTier] : '');
   $('#groupCount').textContent = `${list.length}명`;
   $('#roster').innerHTML = rows.length ? rows.map(({p,e}) => {
@@ -943,8 +965,17 @@ $('#modeSeg').addEventListener('click', e => {
 });
 $('#roster').addEventListener('click', e => {
   const b = e.target.closest('.row'); if (!b || state.busy) return;
-  state.sel = +b.dataset.id; state.lens = sel().job; renderAll();
+  state.sel = +b.dataset.id; state.lens = sel().job;
+  if (b.dataset.search){
+    const p = sel();
+    state.fUnit = p.unit; state.fJob = codeOf(p);
+    if (state.fTier !== 'all') state.fTier = tierOf(p);
+    state.q = ''; $('#q').value = ''; syncPickers();
+  }
+  renderAll();
 });
+$('#q').addEventListener('input', e => { state.q = e.target.value.trim(); renderRoster(rawAll()); });
+$('#q').addEventListener('keydown', e => { if (e.key === 'Escape'){ e.target.value = ''; state.q = ''; renderRoster(rawAll()); } });
 $('#lensGrid').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || state.busy || b.dataset.job === state.lens) return;
   const p = sel(), before = snap(p, state.lens);
