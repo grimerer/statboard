@@ -56,7 +56,7 @@ header.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justif
 .label{font-size:11.5px;letter-spacing:.06em;color:var(--muted);font-weight:600;margin:0 0 6px;display:block}
 
 /* 명부 */
-.roster{padding:14px;display:grid;gap:14px}
+.roster{padding:14px;display:flex;flex-direction:column;gap:14px}
 .seg{display:flex;background:var(--surface-2);border-radius:7px;padding:3px;gap:2px}
 .seg button{flex:1;border:0;background:transparent;color:var(--muted);padding:6px 4px;border-radius:5px;font-size:12.5px;white-space:nowrap}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.14)}
@@ -64,7 +64,7 @@ select{font:inherit;background:var(--surface);color:var(--ink);border:1px solid 
 .pickers{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
 .roster-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .roster-head b{font-size:14px}
-.roster ul{list-style:none;margin:0;padding:0;display:grid;gap:2px;max-height:56vh;overflow:auto}
+.roster ul{list-style:none;margin:0;padding:0;display:grid;align-content:start;gap:2px;overflow:auto;flex:1 1 0;min-height:240px}
 .row{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 9px;border-radius:7px;width:100%;border:0;background:transparent;text-align:left}
 .row:hover{background:var(--surface-2)}
 .row[aria-current="true"]{background:var(--surface-2)}
@@ -189,8 +189,8 @@ table.rules th.cur{color:var(--accent)}
 @keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes burst{from{transform:translate(-50%,-50%) rotate(0);opacity:1}to{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(var(--rot));opacity:0}}
 
-@media (min-width:901px){.roster{position:sticky;top:16px}}
-@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)} .roster ul{max-height:300px} .duo{grid-template-columns:minmax(0,1fr)}}
+@media (min-width:901px){.roster{align-self:stretch;contain:size}}
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)} .roster ul{flex:none;max-height:360px} .duo{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:780px){.statcard{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:600px){.hero{grid-template-columns:minmax(0,1fr)} .scorebox{text-align:left} .rankline{justify-content:flex-start} .scorebox .big{font-size:54px}}
 @media (max-width:440px){.lens-grid{grid-template-columns:minmax(0,1fr)}}
@@ -203,7 +203,7 @@ table.rules th.cur{color:var(--accent)}
   <header class="top">
     <div class="brand">
       <h1>능력치 보드</h1>
-      <p>활동을 기록하면 능력치가 오르고, 같은 집단 안에서 100점 만점으로 환산돼요. 데모용 가상 인원 24명.</p>
+      <p>활동을 기록하면 능력치가 오르고, 같은 집단 안에서 100점 만점으로 환산돼요. 데모용 가상 인원 60명.</p>
     </div>
     <div class="sim">
       <span class="status" id="dbStatus">불러오는 중…</span>
@@ -428,6 +428,11 @@ const NAMES = ['김민준','이서준','박도윤','최예준','정시우','강�
   '서우진','신선우','권연우','황유준','안정우','송승우','전승현','홍시윤','유준혁','고은우','문지환','양민재'];
 // 특기와 다른 직무를 맡은 인원 (인덱스 → 담당 직무)
 const CROSS = { 4:'admin', 10:'cmd', 21:'admin' };
+// 추가 데모 인원 36명 (부대별 12명씩, 시드 데이터용)
+const EXTRA_NAMES = ['손지훈','배현우','백도현','허승민','남궁민','심재원','노태윤','하준서','곽민성','성지환','차은호','주시원',
+  '김태현','이준영','박성민','최우빈','정다온','강유찬','조하람','윤서진','장예성','임도겸','한결','오세윤',
+  '서지안','신동하','권태오','황민호','안재희','송현준','전우성','홍지성','유하늘','고태민','문성훈','양지호'];
+const CROSS2 = { 5:'admin', 14:'cmd', 27:'admin', 33:'spec' };
 const MIN_GROUP = 5;
 const XP_PER_POINT = 10;
 const MODE_N = {unit:'부대별', job:'직무별', unitjob:'부대+직무'};
@@ -505,6 +510,26 @@ function seed(){
       const scale = long ? 'important' : pickW(rng, [['daily',.45],['normal',.35],['important',.15],['major',.05]]);
       const role = long ? 'part' : pickW(rng, [['lead',.25],['part',.5],['sup',.25]]);
       acts.push({ pid:i, type, scale, role, points: SCALES[scale].p * ROLES[role].m, day: -Math.floor(rng()*180) - 1 });
+    }
+  }
+  const rng2 = mulberry32(20261028);
+  for (let j = 0; j < EXTRA_NAMES.length; j++){
+    const i = 24 + j;
+    const spec = SPEC_KEYS[j % 4];
+    const baseJob = TRACK_OF_SPEC[spec];
+    const job = CROSS2[j] || baseJob;
+    const rank = job === 'cmd' ? ['하사','병장','중사'][Math.floor(rng2()*3)] : j % 5 === 1 ? (rng2() < .5 ? '중사' : '하사') : ['이병','일병','상병','병장'][Math.floor(rng2()*4)];
+    const p = { id:i, name:EXTRA_NAMES[j], rank, unit:UNITS[j % 3], spec, job, baseJob, defaultJob: job, legacy: Math.round(300 + rng2()*1400), statBonus:{} };
+    people.push(p);
+    const count = 18 + Math.floor(rng2()*26);
+    const typeW = TYPES.map(t => [t.id,
+      t.noSeed ? 0 : t.aff.includes(job) ? 5 : t.aff.includes(spec) ? 3.5 : t.aff.includes('common') ? 1.6 : (t.id === 'edu' || t.id === 'cert') ? .4 : .5]);
+    for (let c = 0; c < count; c++){
+      const type = pickW(rng2, typeW);
+      const long = type === 'edu' || type === 'cert';
+      const scale = long ? 'important' : pickW(rng2, [['daily',.45],['normal',.35],['important',.15],['major',.05]]);
+      const role = long ? 'part' : pickW(rng2, [['lead',.25],['part',.5],['sup',.25]]);
+      acts.push({ pid:i, type, scale, role, points: SCALES[scale].p * ROLES[role].m, day: -Math.floor(rng2()*180) - 1 });
     }
   }
   state.people = people; state.acts = acts;
