@@ -119,6 +119,16 @@ select{font:inherit;background:var(--surface);color:var(--ink);border:1px solid 
 .delta.up{color:var(--up)} .delta.down{color:var(--down)}
 
 .lens{grid-column:1/-1;border-top:1px solid var(--line);padding-top:16px}
+.chg{grid-column:1/-1;border-top:1px solid var(--line);padding-top:14px;display:grid;gap:6px}
+.chg-head{display:flex;gap:4px 12px;align-items:baseline;flex-wrap:wrap}
+.chg-head b{font-size:16px}
+.chg .up{color:var(--up)} .chg .down{color:var(--down)}
+.chg-ctx{margin:0;font-size:13.5px;line-height:1.55}
+.chg-list{margin:0;padding-left:18px;display:grid;gap:3px;font-size:13.5px}
+.chg-list span{font-weight:600}
+.nores{font-size:12px;color:var(--muted);border:1px dashed var(--muted);border-radius:99px;padding:0 7px;white-space:nowrap}
+.btn.demo{border-style:dashed}
+.demo-tag{font-size:11px;font-weight:700;color:var(--warn);border:1px solid var(--warn);border-radius:99px;padding:0 6px;margin-left:4px}
 .lens-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
 .lens-grid button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;text-align:left;display:grid;gap:2px}
 .lens-grid button:hover{border-color:var(--muted)}
@@ -287,7 +297,7 @@ table.rules th.cur{color:var(--accent)}
     <div class="sim">
       <button type="button" class="status" id="dbStatus" disabled>불러오는 중…</button>
       <span class="date-chip mono" id="simDate">기준일</span>
-      <button class="btn" id="skipBtn" type="button">30일 경과</button>
+      <button class="btn demo" id="skipBtn" type="button" title="시연용: 시간이 30일 흐른 상황을 미리 보여줘요. 실제 기록은 바뀌지 않아요.">30일 경과<span class="demo-tag">시연용</span></button>
       <button class="btn" id="resetBtn" type="button">초기화</button>
     </div>
   </header>
@@ -347,6 +357,7 @@ table.rules th.cur{color:var(--accent)}
           <span class="label" id="lensLabel">직무별 종합 능력 점수</span>
           <div class="lens-grid" id="lensGrid"></div>
         </div>
+        <div class="chg" id="chgBox" aria-live="polite"></div>
       </section>
 
       <section class="panel statcard">
@@ -363,7 +374,7 @@ table.rules th.cur{color:var(--accent)}
             </table>
           </div>
           <p class="note" id="exclNote"></p>
-          <p class="note">원점수는 시간 감쇠를 적용한 활동 점수예요(일반 활동 반감기 45일, 교육·자격증 365일). 종합 점수는 반영 능력치의 상대평가 점수에 계층·직무별 가중치를 곱해 합산해요.</p>
+          <p class="note">원점수는 시간 감쇠를 적용한 활동 점수예요(일반 활동 반감기 45일, 교육·자격증 365일). 종합 점수는 반영 능력치의 상대평가 점수에 계층·직무별 가중치를 곱해 합산해요. "기록 없음"은 반영 기간 안에 그 능력치 활동이 없다는 뜻이고, 같은 집단에서 기록이 없는 인원끼리는 같은 점수로 계산돼요.</p>
         </div>
       </section>
 
@@ -905,7 +916,7 @@ function drawRadar(pct, avg){
   const vis = radarVis;
   $('#rMe').setAttribute('points', vis.map((s,i) => pt(i, Math.max(pct[s.k], 2)).join(',')).join(' '));
   $('#rAvg').setAttribute('points', vis.map((s,i) => pt(i, Math.max(avg[s.k], 2)).join(',')).join(' '));
-  vis.forEach((s,i) => { const [x,y] = pt(i, Math.max(pct[s.k], 2)); const d = $('#rDot'+i); d.setAttribute('cx', x); d.setAttribute('cy', y); $('#rVal'+i).textContent = Math.round(pct[s.k]) + '점'; });
+  vis.forEach((s,i) => { const [x,y] = pt(i, Math.max(pct[s.k], 2)); const d = $('#rDot'+i); d.setAttribute('cx', x); d.setAttribute('cy', y); $('#rVal'+i).textContent = curRaw && curRaw[s.k] < 1e-6 ? '기록 없음' : Math.round(pct[s.k]) + '점'; });
 }
 const ZERO = Object.fromEntries(STATS.map(s => [s.k, 0]));
 const lerpObj = (a, b, e) => Object.fromEntries(Object.keys(b).map(k => [k, a[k] + (b[k] - a[k]) * e]));
@@ -934,7 +945,28 @@ function rankLabel(s, before){
   const tail = own ? '' : ` (${JOBS[s.lens].n} 기준 환산)`;
   return before && before.rank !== s.rank ? `${head}${before.rank}위 → ${s.rank}위${tail}` : `${head}${s.rank}위${tail}`;
 }
+let curRaw = null;
+// 점수 변동 이유: 기본은 지난 30일 대비, 활동 기록·시간 경과 직후에는 그 직전 대비
+function renderChange(p, s1, s0, cause){
+  if (!s0){ const keep = state.offset; state.offset -= 30; s0 = evaluate(p, s1.lens, rawAll()); state.offset = keep; }
+  const w = wOf(s1.tier, s1.lens), d = s1.comp - s0.comp, sign = v => (v > 0 ? '+' : '') + v.toFixed(1);
+  const lines = s1.vis.map(st => ({ st, a: s0.pct[st.k], b: s1.pct[st.k], d: (s1.pct[st.k] - s0.pct[st.k]) * (w[st.k] || 0) / 100 }))
+    .filter(x => Math.abs(x.d) >= 0.5).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 3);
+  let ctx = cause && cause.text;
+  if (!ctx){
+    const recent = actsOf(p.id).filter(a => a.day <= state.offset && a.day > state.offset - 30);
+    ctx = recent.length ? `지난 30일 동안 새 기록 ${recent.length}건 (+${recent.reduce((t, a) => t + Math.round(a.points * XP_PER_POINT), 0)} XP)`
+      : '지난 30일 동안 새 기록이 없어요. 예전 기록은 시간이 지나며 조금씩 줄어들어요(반감기).';
+  }
+  const rank = s0.rank !== s1.rank ? `순위 ${s0.rank}위 → ${s1.rank}위` : `순위 ${s1.rank}위 유지`;
+  $('#chgBox').innerHTML = `<div class="chg-head"><span class="label" style="margin:0">${cause ? cause.title : '지난 30일 점수 변동'}</span>
+    <b class="mono ${d >= 0.5 ? 'up' : d <= -0.5 ? 'down' : ''}">${Math.round(s0.comp)} → ${Math.round(s1.comp)}점 (${sign(d)})</b><span class="muted">${rank}</span></div>
+    <p class="chg-ctx">${escH(ctx)}</p>
+    ${lines.length ? `<ul class="chg-list">${lines.map(x => `<li><span>${x.st.n}</span> 상대평가 ${Math.round(x.a)} → ${Math.round(x.b)} · 종합 점수 <b class="${x.d > 0 ? 'up' : 'down'}">${sign(x.d)}점</b></li>`).join('')}</ul>`
+      : `<p class="chg-ctx muted">능력치별로 큰 변화는 없어요. 같은 집단 인원의 점수가 함께 움직이면 순위만 바뀔 수도 있어요.</p>`}`;
+}
 function renderScore(s, before){
+  curRaw = s.raw;
   $('#compLabel').textContent = `종합 능력 점수 · ${TIERS[s.tier]} ${JOBS[s.lens].n} 기준`;
   $('#rankText').textContent = rankLabel(s, before);
   $('#refPill').hidden = s.n >= MIN_GROUP;
@@ -975,8 +1007,8 @@ function renderStats(p, s, prev){
     return `<tr class="${flash ? 'flash' : ''}">
       <td>${st.n}${st.g === 'common' ? '<span class="g common">공통</span>' : ''}</td>
       <td class="num mono muted">${w[k]}%</td>
-      <td class="num mono">${s.raw[k].toFixed(1)}</td>
-      <td><div class="pbar"><div class="t"><i data-k="${k}" style="width:${prev ? prev.pct[k] : pct}%"></i></div><span class="v mono">${Math.round(pct)}</span>${dp ? `<span class="delta ${dp > 0 ? 'up' : 'down'}">${dp > 0 ? '+' : ''}${dp}</span>` : ''}</div></td>
+      <td class="num mono">${s.raw[k] < 1e-6 ? '–' : s.raw[k].toFixed(1)}</td>
+      <td><div class="pbar"><div class="t"><i data-k="${k}" style="width:${prev ? prev.pct[k] : pct}%"></i></div>${s.raw[k] < 1e-6 ? `<span class="nores" title="최근 기록이 없어 같은 집단의 기록 없는 인원과 같은 점수로 계산돼요">기록 없음 · ${Math.round(pct)}</span>` : `<span class="v mono">${Math.round(pct)}</span>`}${dp ? `<span class="delta ${dp > 0 ? 'up' : 'down'}">${dp > 0 ? '+' : ''}${dp}</span>` : ''}</div></td>
       <td class="num slv">Lv.${s.statL[k]}${lvUp ? ' <span class="delta up">▲</span>' : ''}</td></tr>`;
   }).join('');
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -1060,7 +1092,7 @@ function renderRules(s){
 }
 function renderDate(){
   const d = new Date(BASE_MS + state.offset * 864e5);
-  $('#simDate').innerHTML = `기준일 ${d.getUTCFullYear()}.${String(d.getUTCMonth()+1).padStart(2,'0')}.${String(d.getUTCDate()).padStart(2,'0')}` + (state.offset ? ` <b>+${state.offset}일</b>` : '');
+  $('#simDate').innerHTML = `기준일 ${d.getUTCFullYear()}.${String(d.getUTCMonth()+1).padStart(2,'0')}.${String(d.getUTCDate()).padStart(2,'0')}` + (state.offset ? ` <b>+${state.offset}일 (시연)</b>` : '');
 }
 // 능력치별 XP를 정수로 나누되 합계가 총 XP와 같도록 (큰 나머지부터 1씩 배분)
 function splitXP(xp, ratios){
@@ -1097,7 +1129,7 @@ function renderAll(){
   const raw = rawAll(), p = sel(), s = snap(p, state.lens, raw);
   renderDate(); renderRoster(raw); renderIdentity(p); setLevel(s.level, s.xp); setBar(progress(s.xp, s.level));
   $('#comp').textContent = Math.round(s.comp); renderScore(s); renderLens(p, raw);
-  ensureRadar(s.vis); drawRadar(s.pct, s.avg); renderStats(p, s); renderLog(p); renderPreview(); renderRules(s);
+  ensureRadar(s.vis); drawRadar(s.pct, s.avg); renderStats(p, s); renderLog(p); renderPreview(); renderRules(s); renderChange(p, s);
 }
 
 // ---------- 상호작용 ----------
@@ -1108,6 +1140,7 @@ function animateTo(before, after, opts = {}){
   renderDate(); renderRoster(raw); renderLens(p, raw); renderPreview(); renderRules(after);
   renderStats(p, after, opts.flash ? before : null); renderLog(p, opts.freshIdx ?? -1);
   renderScore(after, opts.flash ? before : null);
+  renderChange(p, after, opts.cause ? before : null, opts.cause);
   const rebuilt = ensureRadar(after.vis);
   const fromPct = rebuilt ? ZERO : before.pct, fromAvg = rebuilt ? ZERO : before.avg;
   tween(opts.xp ? 1100 : 600, e => {
@@ -1237,13 +1270,15 @@ $('#actForm').addEventListener('submit', e => {
   save('activities', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ personnel_id:p.id, type, scale, role, points, detail, occurred_at: dateFrom(state.offset) }) }, r => { act.id = r && r[0] && r[0].id; });
   const after = snap(p, state.lens);
   toast(`+${Math.round(points * XP_PER_POINT)} XP · ${TYPE[type].n} (${actLabel(act)})`);
-  animateTo(before, after, { xp:true, flash:true, freshIdx: state.acts.length - 1 });
+  animateTo(before, after, { xp:true, flash:true, freshIdx: state.acts.length - 1,
+    cause: { title:'방금 기록한 활동으로 바뀐 점수', text:`${TYPE[type].n} (${actLabel(act)}) · +${Math.round(points * XP_PER_POINT)} XP` } });
 });
 $('#skipBtn').addEventListener('click', () => {
   if (state.busy) return;
   const p = sel(), before = snap(p, state.lens);
   state.offset += 30;
-  animateTo(before, snap(p, state.lens), { flash:true });
+  animateTo(before, snap(p, state.lens), { flash:true,
+    cause: { title:'30일 경과 후 바뀐 점수 (시연)', text:'모든 인원의 기록 점수가 시간이 지나며 줄었어요(반감기). 같은 집단 인원과 다시 비교하기 때문에 순위가 바뀔 수 있어요.' } });
   toast('30일이 지났어요. 원점수는 감쇠로 줄고, 레벨과 XP는 그대로예요.');
 });
 let resetArmed = 0;
