@@ -87,6 +87,8 @@ select{font:inherit;background:var(--surface);color:var(--ink);border:1px solid 
 .who .meta b{color:var(--ink);font-weight:600}
 .jobsel{display:inline-flex;align-items:center;gap:6px}
 .jobsel select{width:auto;padding:3px 6px;font-size:13px}
+.slsel{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--ink)}
+.slsel input{accent-color:var(--accent);width:15px;height:15px;margin:0}
 .lvline{display:flex;align-items:baseline;gap:10px;margin-top:14px;flex-wrap:wrap}
 .lvbadge{font-family:var(--f-display);font-size:22px;color:var(--xp)}
 .title-pill{font-size:12px;border:1px solid var(--xp);color:var(--xp);padding:1px 8px;border-radius:99px}
@@ -251,6 +253,7 @@ table.rules th.cur{color:var(--accent)}
             <span id="pUnit"></span>
             <span>특기 <b id="pSpec"></b></span>
             <span class="jobsel"><label for="pJob">담당 직무</label><select id="pJob"></select></span>
+            <label class="slsel" id="slWrap" hidden><input type="checkbox" id="pSL"> 분대장</label>
           </div>
           <div class="lvline">
             <span class="lvbadge" id="pLv"></span>
@@ -488,7 +491,7 @@ async function loadRemote(){
     acts.push(...page); if (page.length < 1000) break;
   }
   state.people = people.map(r => ({ id:r.id, name:r.name, rank:r.rank, unit:r.unit, spec:r.specialty, job:r.duty || toDuty(r.job, r.specialty),
-    defaultJob:r.default_duty || toDuty(r.default_job, r.specialty), baseJob:r.base_job, legacy:r.legacy_xp, statBonus:r.stat_bonus || {} }));
+    defaultJob:r.default_duty || toDuty(r.default_job, r.specialty), squadLeader: !!r.is_squad_leader, baseJob:r.base_job, legacy:r.legacy_xp, statBonus:r.stat_bonus || {} }));
   state.acts = acts.filter(r => TYPE[r.type] && (r.detail || (SCALES[r.scale] && ROLES[r.role]))).map(r => ({ id:r.id, pid:r.personnel_id,
     type:r.type, scale:r.scale, role:r.role, points:+r.points, detail:r.detail || null, day:dayFrom(r.occurred_at), seed:r.is_seed }));
   state.offset = 0;
@@ -577,7 +580,7 @@ function seed(){
       acts.push({ pid:i, type, scale, role, points: SCALES[scale].p * ROLES[role].m, day: -Math.floor(rng3()*180) - 1 });
     }
   }
-  for (const p of people){ p.job = toDuty(p.job, p.spec); p.defaultJob = p.job; }
+  for (const p of people){ p.job = toDuty(p.job, p.spec); p.defaultJob = p.job; p.squadLeader = defaultSL(p); }
   state.people = people; state.acts = acts;
   // 시연 주인공: 종합 레벨·문서작성 레벨이 각각 레벨업 직전이 되도록 보정
   const hero = people[0];
@@ -715,8 +718,12 @@ function setLevel(L, xp){
 }
 const setBar = f => $('#xpFill').style.width = (f * 100).toFixed(1) + '%';
 
+// 분대장 지정: 병장만 선택 가능. 기본값은 지휘 직무를 맡은 병장
+const defaultSL = p => p.rank === '병장' && p.defaultJob === 'cmd';
 function renderIdentity(p){
   $('#pName').textContent = `${p.name} ${p.rank}`;
+  $('#slWrap').hidden = p.rank !== '병장';
+  $('#pSL').checked = !!p.squadLeader;
   $('#pUnit').textContent = `${p.unit} · ${TIERS[tierOf(p)]}`;
   $('#pSpec').textContent = SPECS[p.spec];
   $('#pJob').innerHTML = JOB_KEYS.map(j => `<option value="${j}">${JOBS[j].n}</option>`).join('');
@@ -745,7 +752,7 @@ function renderScore(s, before){
 function lensKeys(p){
   const ks = ['admin'], d = DUTY_OF_SPEC[p.spec];
   if (d === 'maint' || d === 'signal') ks.push(d);
-  if (p.rank === '병장' || tierOf(p) === 'cadre') ks.push('cmd');
+  if (tierOf(p) === 'cadre' || (p.rank === '병장' && p.squadLeader)) ks.push('cmd');
   if (!ks.includes(p.job)) ks.push(p.job);
   return JOB_KEYS.filter(k => ks.includes(k));
 }
@@ -996,6 +1003,14 @@ $('#lensGrid').addEventListener('click', e => {
   state.lens = b.dataset.job;
   animateTo(before, snap(p, state.lens));
 });
+$('#pSL').addEventListener('change', e => {
+  if (state.busy){ e.target.checked = !!sel().squadLeader; return; }
+  const p = sel(); p.squadLeader = e.target.checked;
+  if (!p.squadLeader && state.lens === 'cmd' && p.job !== 'cmd') state.lens = p.job;
+  renderAll();
+  save(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ is_squad_leader: p.squadLeader }) });
+  toast(p.squadLeader ? `${p.name} ${p.rank}을(를) 분대장으로 지정했어요. 직무(지휘) 점수가 보여요.` : `${p.name} ${p.rank}의 분대장 지정을 해제했어요.`);
+});
 $('#pJob').addEventListener('change', e => {
   if (state.busy){ e.target.value = sel().job; return; }
   const p = sel(); p.job = e.target.value; state.lens = p.job;
@@ -1041,6 +1056,8 @@ $('#resetBtn').addEventListener('click', async () => {
       await api('activities?is_seed=eq.false', { method:'DELETE' });
       for (const p of state.people.filter(p => p.job !== p.defaultJob))
         await api(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ duty: p.defaultJob }) });
+      for (const p of state.people.filter(p => !!p.squadLeader !== defaultSL(p)))
+        await api(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ is_squad_leader: defaultSL(p) }) });
       await loadRemote(); setStatus('remote');
     } catch (err){ console.error(err); setStatus('error'); }
     state.busy = false;
