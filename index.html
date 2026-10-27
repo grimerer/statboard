@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="활동을 기록하면 능력치와 레벨이 오르는 인력관리 데모">
+<title>능력치 보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: 좌측 인원 명부(비교 집단별) + 우측 개인 기록카드(직무별 종합점수·레이더·활동 입력) */
+:root{
+  --bg:#eef0ea; --surface:#fbfcf8; --surface-2:#e4e8de; --ink:#1b2119; --muted:#5d6858; --line:#d3d9cc;
+  --accent:#35603f; --accent-ink:#fbfcf8; --xp:#a8760e; --xp-soft:#efe2c0; --up:#2a7a48; --down:#b4442d; --warn:#9a6a00;
+  --radar-fill:rgba(53,96,63,.22); --radar-avg:rgba(93,104,88,.55); --scrim:rgba(14,17,12,.55);
+  --f-display:"Black Han Sans","IBM Plex Sans KR","Apple SD Gothic Neo",sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#11140f; --surface:#191d17; --surface-2:#242a21; --ink:#e4e8de; --muted:#9aa594; --line:#30372c;
+  --accent:#86b892; --accent-ink:#11140f; --xp:#e2b44d; --xp-soft:#3a3119; --up:#6cc58c; --down:#e58166; --warn:#e2b44d;
+  --radar-fill:rgba(134,184,146,.25); --radar-avg:rgba(154,165,148,.6); --scrim:rgba(0,0,0,.6); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#11140f; --surface:#191d17; --surface-2:#242a21; --ink:#e4e8de; --muted:#9aa594; --line:#30372c;
+  --accent:#86b892; --accent-ink:#11140f; --xp:#e2b44d; --xp-soft:#3a3119; --up:#6cc58c; --down:#e58166; --warn:#e2b44d;
+  --radar-fill:rgba(134,184,146,.25); --radar-avg:rgba(154,165,148,.6); --scrim:rgba(0,0,0,.6); color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0}
+.status{font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.status.ok{color:var(--up);border-color:var(--up)}
+.status.err{color:var(--down);border-color:var(--down)}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5}
+.app{max-width:1280px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+button{font:inherit;cursor:pointer;color:inherit}
+:focus-visible{outline:2px solid var(--xp);outline-offset:2px}
+h1,h2,h3{text-wrap:balance}
+
+header.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between;margin-bottom:18px}
+.brand h1{font-family:var(--f-display);font-weight:400;font-size:28px;margin:0;line-height:1.1}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.sim{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.date-chip{font-size:12px;background:var(--surface-2);padding:7px 10px;border-radius:6px}
+.date-chip b{color:var(--xp);font-weight:600}
+.btn{border:1px solid var(--line);background:var(--surface);padding:7px 12px;border-radius:6px;font-size:13px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.label{font-size:11.5px;letter-spacing:.06em;color:var(--muted);font-weight:600;margin:0 0 6px;display:block}
+
+/* 명부 */
+.roster{padding:14px;display:grid;gap:14px}
+.seg{display:flex;background:var(--surface-2);border-radius:7px;padding:3px;gap:2px}
+.seg button{flex:1;border:0;background:transparent;color:var(--muted);padding:6px 4px;border-radius:5px;font-size:12.5px;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.14)}
+select{font:inherit;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 8px;width:100%}
+.pickers{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.roster-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.roster-head b{font-size:14px}
+.roster ul{list-style:none;margin:0;padding:0;display:grid;gap:2px;max-height:56vh;overflow:auto}
+.row{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 9px;border-radius:7px;width:100%;border:0;background:transparent;text-align:left}
+.row:hover{background:var(--surface-2)}
+.row[aria-current="true"]{background:var(--surface-2)}
+.row[aria-current="true"] .nm{color:var(--accent);font-weight:700}
+.row .rk{font-size:12px;color:var(--muted);text-align:right}
+.row .nm{font-weight:600;display:block}
+.row .mt{font-size:12px;color:var(--muted)}
+.row .spec{color:var(--xp)}
+.row .sc{font-size:15px;font-weight:600}
+.row .lv{font-size:11.5px;color:var(--xp);min-width:40px;text-align:right}
+.hint{font-size:12px;color:var(--muted);margin:0}
+
+/* 메인 */
+.main{display:grid;gap:16px;min-width:0}
+.hero{padding:20px 22px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px 24px;align-items:center}
+.who h2{font-family:var(--f-display);font-weight:400;font-size:30px;margin:0;line-height:1.15}
+.who .meta{color:var(--muted);margin-top:4px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.who .meta b{color:var(--ink);font-weight:600}
+.jobsel{display:inline-flex;align-items:center;gap:6px}
+.jobsel select{width:auto;padding:3px 6px;font-size:13px}
+.lvline{display:flex;align-items:baseline;gap:10px;margin-top:14px;flex-wrap:wrap}
+.lvbadge{font-family:var(--f-display);font-size:22px;color:var(--xp)}
+.title-pill{font-size:12px;border:1px solid var(--xp);color:var(--xp);padding:1px 8px;border-radius:99px}
+.xptext{margin-left:auto;font-size:12px;color:var(--muted)}
+.xpbar{height:12px;background:var(--xp-soft);border-radius:99px;overflow:hidden;margin-top:6px}
+.xpbar i{display:block;height:100%;width:0;background:var(--xp);border-radius:inherit}
+.scorebox{text-align:right;min-width:190px}
+.scorebox .big{font-family:var(--f-display);font-size:64px;line-height:1;letter-spacing:-.01em}
+.scorebox .big small{font-family:var(--f-mono);font-size:15px;color:var(--muted);margin-left:2px}
+.rankline{margin-top:8px;display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;align-items:center;font-size:13px}
+.pill{font-size:11.5px;padding:1px 8px;border-radius:99px;border:1px solid currentColor}
+.pill.warn{color:var(--warn)}
+.delta{font-family:var(--f-mono);font-size:12px;font-weight:600}
+.delta.up{color:var(--up)} .delta.down{color:var(--down)}
+
+.lens{grid-column:1/-1;border-top:1px solid var(--line);padding-top:16px}
+.lens-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.lens-grid button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;text-align:left;display:grid;gap:2px}
+.lens-grid button:hover{border-color:var(--muted)}
+.lens-grid button[aria-pressed="true"]{border-color:var(--accent);background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--accent)}
+.lens-grid .jn{font-size:13px;font-weight:600;display:flex;gap:6px;align-items:center}
+.lens-grid .tag{font-size:10.5px;font-weight:600;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:0 6px}
+.lens-grid .js{font-family:var(--f-display);font-size:26px;line-height:1.1}
+.lens-grid .jr{font-size:11.5px;color:var(--muted)}
+
+.statcard{padding:18px 22px;display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:24px;align-items:center}
+.statcard h3,.box h3{font-size:15px;margin:0 0 10px}
+.radar{width:100%;max-width:360px;height:auto;display:block;margin:0 auto}
+.radar .ring{fill:none;stroke:var(--line)}
+.radar .axis{stroke:var(--line)}
+.radar .avg{fill:none;stroke:var(--radar-avg);stroke-dasharray:4 3;stroke-width:1.5}
+.radar .me{fill:var(--radar-fill);stroke:var(--accent);stroke-width:2}
+.radar .dot{fill:var(--accent)}
+.radar .ax-name{fill:var(--ink);font-size:12px;font-weight:600}
+.radar .ax-name.common{fill:var(--xp)}
+.radar .ax-val{fill:var(--muted);font-family:var(--f-mono);font-size:11px}
+.legend{display:flex;gap:14px;justify-content:center;font-size:12px;color:var(--muted);margin-top:4px;flex-wrap:wrap}
+.legend span::before{content:"";display:inline-block;width:14px;height:0;border-top:2px solid var(--accent);vertical-align:middle;margin-right:5px}
+.legend span.a::before{border-top:2px dashed var(--radar-avg)}
+.legend span.c::before{width:8px;height:8px;border:0;border-radius:2px;background:var(--xp)}
+
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:440px}
+th{font-size:11.5px;color:var(--muted);font-weight:600;text-align:left;padding:0 8px 8px;letter-spacing:.04em}
+td{padding:8px 8px;border-top:1px solid var(--line);vertical-align:middle}
+td.num,th.num{text-align:right}
+td .g{font-size:10.5px;color:var(--muted);margin-left:6px;border:1px solid var(--line);border-radius:99px;padding:0 6px;white-space:nowrap}
+td .g.common{color:var(--xp);border-color:var(--xp)}
+.pbar{display:flex;align-items:center;gap:8px}
+.pbar .t{flex:1;height:7px;background:var(--surface-2);border-radius:99px;overflow:hidden;min-width:70px}
+.pbar .t i{display:block;height:100%;background:var(--accent);border-radius:inherit;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.pbar .v{width:30px;text-align:right}
+tr.flash td{background:color-mix(in srgb,var(--xp) 12%,transparent)}
+.slv{color:var(--xp);font-family:var(--f-mono);font-size:12.5px;white-space:nowrap}
+
+.duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.box{padding:18px 22px;min-width:0}
+.field{display:grid;gap:6px;margin-bottom:12px}
+.preview{background:var(--surface-2);border-radius:8px;padding:12px 14px;margin:4px 0 14px;font-size:13px}
+.preview .xp{font-family:var(--f-display);font-size:24px;color:var(--xp)}
+.preview .split{color:var(--muted);margin-top:2px}
+.preview .split b{color:var(--ink);font-weight:600}
+.preview .off{text-decoration:line-through;opacity:.7}
+.box .btn.primary{width:100%;padding:11px;font-size:14px}
+.log{list-style:none;margin:0;padding:0;display:grid}
+.log li{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;padding:9px 0;border-top:1px solid var(--line);align-items:center}
+.log li:first-child{border-top:0}
+.log .d{font-size:12px;color:var(--muted)}
+.log .t{font-weight:500}
+.log .s{font-size:12px;color:var(--muted)}
+.log .x{text-align:right;font-size:12.5px}
+.log .x b{color:var(--xp);font-weight:600;display:block}
+.log li.fresh{animation:fresh 2.4s ease-out}
+@keyframes fresh{from{background:color-mix(in srgb,var(--xp) 22%,transparent)}to{background:transparent}}
+.note{font-size:12px;color:var(--muted);margin:10px 0 0}
+.note:empty{display:none}
+
+table.rules{min-width:640px;font-size:13px}
+table.rules th{text-align:right;white-space:nowrap}
+table.rules th:first-child{text-align:left}
+table.rules td{padding:6px 8px}
+table.rules td.off{color:var(--line)}
+table.rules tr.grp td{background:var(--surface-2);font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.04em;padding:5px 8px}
+table.rules tr.grp.common td{color:var(--xp)}
+table.rules .cur{background:color-mix(in srgb,var(--accent) 12%,transparent);font-weight:600}
+table.rules th.cur{color:var(--accent)}
+
+/* 토스트, 레벨업 */
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:40;max-width:calc(100% - 32px);font-size:13.5px;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.lvup{position:fixed;inset:0;display:grid;place-items:center;background:var(--scrim);z-index:50;padding:20px}
+.lvup[hidden]{display:none}
+.lvup .card{background:var(--surface);border:2px solid var(--xp);border-radius:14px;padding:30px 30px 24px;text-align:center;max-width:360px;width:100%;position:relative;overflow:hidden;animation:pop .55s cubic-bezier(.2,1.5,.4,1)}
+.lvup h2{font-family:var(--f-display);font-weight:400;font-size:46px;color:var(--xp);margin:0;line-height:1}
+.lvup .lvchg{font-family:var(--f-mono);font-size:22px;margin:12px 0 4px;font-weight:600}
+.lvup .ttl{color:var(--muted);margin:0 0 12px}
+.lvup .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:16px}
+.lvup .chips span{font-size:12px;background:var(--xp-soft);padding:3px 9px;border-radius:99px}
+.bit{position:absolute;top:38%;left:50%;width:8px;height:12px;border-radius:2px;animation:burst 1.3s ease-out forwards;pointer-events:none}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes burst{from{transform:translate(-50%,-50%) rotate(0);opacity:1}to{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(var(--rot));opacity:0}}
+
+@media (min-width:901px){.roster{position:sticky;top:16px}}
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)} .roster ul{max-height:300px} .duo{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:780px){.statcard{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:600px){.hero{grid-template-columns:minmax(0,1fr)} .scorebox{text-align:left} .rankline{justify-content:flex-start} .scorebox .big{font-size:54px}}
+@media (max-width:440px){.lens-grid{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>능력치 보드</h1>
+      <p>활동을 기록하면 능력치가 오르고, 같은 집단 안에서 100점 만점으로 환산돼요. 데모용 가상 인원 24명.</p>
+    </div>
+    <div class="sim">
+      <span class="status" id="dbStatus">불러오는 중…</span>
+      <span class="date-chip mono" id="simDate">기준일</span>
+      <button class="btn" id="skipBtn" type="button">30일 경과</button>
+      <button class="btn" id="resetBtn" type="button">초기화</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="panel roster" aria-label="인원 명부">
+      <div>
+        <span class="label">비교 집단</span>
+        <div class="seg" id="modeSeg" role="group" aria-label="비교 집단">
+          <button type="button" data-mode="unit" aria-pressed="false">부대별</button>
+          <button type="button" data-mode="job" aria-pressed="true">직무별</button>
+          <button type="button" data-mode="unitjob" aria-pressed="false">부대+직무</button>
+        </div>
+      </div>
+      <div class="pickers">
+        <div id="unitPick"><label class="label" for="fUnit">부대</label><select id="fUnit"></select></div>
+        <div id="jobPick"><label class="label" for="fJob">담당 직무</label><select id="fJob"></select></div>
+      </div>
+      <div class="roster-head"><b id="groupTitle"></b><span class="muted mono" id="groupCount"></span></div>
+      <ul id="roster"></ul>
+      <p class="hint" id="rosterHint"></p>
+    </aside>
+
+    <main class="main">
+      <section class="panel hero" aria-live="polite">
+        <div class="who">
+          <h2 id="pName"></h2>
+          <div class="meta">
+            <span id="pUnit"></span>
+            <span>특기 <b id="pSpec"></b></span>
+            <span class="jobsel"><label for="pJob">담당 직무</label><select id="pJob"></select></span>
+          </div>
+          <div class="lvline">
+            <span class="lvbadge" id="pLv"></span>
+            <span class="title-pill" id="pTitle"></span>
+            <span class="xptext mono" id="xpText"></span>
+          </div>
+          <div class="xpbar" aria-hidden="true"><i id="xpFill"></i></div>
+        </div>
+        <div class="scorebox">
+          <span class="label" id="compLabel">종합 능력 점수</span>
+          <div class="big"><span id="comp">0</span><small>/100</small></div>
+          <div class="rankline"><span id="rankText"></span><span id="rankDelta" class="delta"></span><span id="refPill" class="pill warn" hidden>참고용</span></div>
+        </div>
+        <div class="lens">
+          <span class="label" id="lensLabel">직무별 종합 능력 점수</span>
+          <div class="lens-grid" id="lensGrid"></div>
+        </div>
+      </section>
+
+      <section class="panel statcard">
+        <div>
+          <svg class="radar" id="radar" viewBox="0 0 400 340" role="img" aria-label="능력치 레이더 차트"></svg>
+          <div class="legend"><span>본인</span><span class="a" id="avgLegend">집단 평균</span><span class="c">공통 능력치</span></div>
+        </div>
+        <div style="min-width:0">
+          <h3 id="statTitle">능력치 상세</h3>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>능력치</th><th class="num">가중치</th><th class="num">원점수</th><th>상대평가</th><th class="num">레벨</th></tr></thead>
+              <tbody id="statRows"></tbody>
+            </table>
+          </div>
+          <p class="note" id="exclNote"></p>
+          <p class="note">원점수는 시간 감쇠를 적용한 활동 점수예요(일반 활동 반감기 45일, 교육·자격증 365일). 종합 점수는 반영 능력치의 상대평가 점수에 계층·직무별 가중치를 곱해 합산해요.</p>
+        </div>
+      </section>
+
+      <div class="duo">
+        <section class="panel box">
+          <h3>활동 기록하기</h3>
+          <form id="actForm">
+            <div class="field">
+              <label class="label" for="fType">활동 유형</label>
+              <select id="fType"></select>
+            </div>
+            <div class="field">
+              <span class="label">업무 규모</span>
+              <div class="seg" id="fScale" role="group" aria-label="업무 규모"></div>
+            </div>
+            <div class="field">
+              <span class="label">역할</span>
+              <div class="seg" id="fRole" role="group" aria-label="역할"></div>
+            </div>
+            <div class="preview" id="preview"></div>
+            <button class="btn primary" id="submitBtn" type="submit">기록하고 반영하기</button>
+          </form>
+        </section>
+        <section class="panel box">
+          <h3>최근 활동</h3>
+          <ul class="log" id="log"></ul>
+        </section>
+      </div>
+
+      <section class="panel box">
+        <h3>계층·직무별 반영 능력치 기준표</h3>
+        <p class="note" style="margin:0 0 12px">병사는 하사 미만, 간부는 하사 이상이에요. 공통 능력치(소통/협업, 자기계발, 봉사)는 모두에게 반영되고, 나머지는 직무 계열과 계층에 따라 달라져요. 표에 없는 능력치(–)는 화면과 종합 점수에서 빠지지만, 활동 XP와 레벨은 그대로 쌓여요. 지금 보고 있는 기준은 강조돼 있어요.</p>
+        <div class="tbl-wrap"><table class="rules" id="rules"></table></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+<div class="lvup" id="lvup" hidden>
+  <div class="card" id="lvCard">
+    <h2>LEVEL UP</h2>
+    <div class="lvchg" id="lvChg"></div>
+    <p class="ttl" id="lvTtl"></p>
+    <div class="chips" id="lvChips"></div>
+    <button class="btn primary" id="lvClose" type="button">계속하기</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+(() => {
+// 능력치 15종: 직무 계열별 4종씩 + 공통 3종
+const STAT_GROUPS = {admin:'행정', spec:'특기', cmd:'지휘관', common:'공통'};
+const STATS = [
+  {k:'doc',n:'문서작성',g:'admin'},{k:'plan',n:'기획/분석',g:'admin'},{k:'brief',n:'보고·브리핑',g:'admin'},{k:'mgmt',n:'업무관리',g:'admin'},
+  {k:'tech',n:'전문기술',g:'spec'},{k:'equip',n:'장비운용',g:'spec'},{k:'solve',n:'문제해결',g:'spec'},{k:'safety',n:'안전관리',g:'spec'},
+  {k:'lead',n:'리더십',g:'cmd'},{k:'train',n:'교육훈련',g:'cmd'},{k:'judge',n:'상황판단',g:'cmd'},{k:'people',n:'인원관리',g:'cmd'},
+  {k:'comm',n:'소통/협업',g:'common'},{k:'self',n:'자기계발',g:'common'},{k:'serve',n:'봉사',g:'common'}];
+// 담당 직무(계열): 특기와 별개로 지정
+const JOBS = {admin:{n:'행정'}, spec:{n:'특기'}, cmd:{n:'지휘관'}};
+const JOB_KEYS = Object.keys(JOBS);
+// 특기: 인사상 고정값
+const SPECS = {admin:'행정', maint:'정비', signal:'통신', infantry:'보병'};
+const SPEC_KEYS = Object.keys(SPECS);
+const TRACK_OF_SPEC = {admin:'admin', maint:'spec', signal:'spec', infantry:'cmd'};
+// 계층×직무별 반영 능력치와 가중치 (합계 100)
+const TIERS = {enlisted:'병사', cadre:'간부'};
+const CADRE_RANKS = ['하사','중사','상사','원사','소위','중위','대위','소령'];
+const tierOf = p => CADRE_RANKS.includes(p.rank) ? 'cadre' : 'enlisted';
+const WEIGHTS = {
+  enlisted:{
+    admin:{doc:30,mgmt:25,comm:20,self:15,serve:10},
+    spec:{tech:30,equip:25,safety:15,comm:10,self:12,serve:8},
+    cmd:{lead:30,people:25,comm:20,self:15,serve:10}},
+  cadre:{
+    admin:{doc:20,plan:20,brief:15,mgmt:15,comm:15,self:8,serve:7},
+    spec:{tech:25,equip:15,solve:15,safety:15,comm:15,self:8,serve:7},
+    cmd:{lead:22,train:18,judge:18,people:12,comm:15,self:8,serve:7}}};
+const wOf = (tier, job) => WEIGHTS[tier][job];
+const visStats = (tier, job) => STATS.filter(s => wOf(tier, job)[s.k]);
+const UNITS = ['1중대','2중대','3중대'];
+// 활동 유형 템플릿: 능력치 배분(합계 1), 반감기, 주로 하는 계열/특기(시드 데이터용)
+const TYPES = [
+  {id:'report',   g:'admin',  n:'보고서·문서 작성',     r:{doc:.7,mgmt:.3},          hl:45,  aff:['admin']},
+  {id:'eventdoc', g:'admin',  n:'행사 계획서 작성',     r:{doc:.5,plan:.5},          hl:45,  aff:['admin','cmd']},
+  {id:'brief',    g:'admin',  n:'브리핑·발표',          r:{brief:.6,comm:.4},        hl:45,  aff:['admin','cmd']},
+  {id:'supply',   g:'admin',  n:'자료·물자 관리',       r:{mgmt:.8,doc:.2},          hl:45,  aff:['admin']},
+  {id:'maint',    g:'spec',   n:'장비 정비·점검',       r:{tech:.5,equip:.3,safety:.2}, hl:45, aff:['spec','maint']},
+  {id:'operate',  g:'spec',   n:'장비·통신망 운용',     r:{equip:.7,tech:.3},        hl:45,  aff:['spec','signal','maint']},
+  {id:'fix',      g:'spec',   n:'고장·장애 조치',       r:{solve:.7,tech:.3},        hl:45,  aff:['spec','maint','signal']},
+  {id:'safety',   g:'spec',   n:'안전점검',             r:{safety:.8,equip:.2},      hl:45,  aff:['spec','cmd']},
+  {id:'command',  g:'cmd',    n:'분대 지휘·인솔',       r:{lead:.7,people:.3},       hl:45,  aff:['cmd','infantry']},
+  {id:'train',    g:'cmd',    n:'교육훈련 지도',        r:{train:.7,lead:.3},        hl:45,  aff:['cmd']},
+  {id:'situation',g:'cmd',    n:'상황조치 훈련',        r:{judge:.7,lead:.3},        hl:45,  aff:['cmd','infantry']},
+  {id:'counsel',  g:'cmd',    n:'장병 면담·고충 상담',  r:{people:.6,comm:.4},       hl:45,  aff:['cmd']},
+  {id:'collab',   g:'common', n:'협업 과제 지원',       r:{comm:.7,plan:.3},         hl:45,  aff:['common']},
+  {id:'volunteer',g:'common', n:'봉사활동·대민지원',    r:{serve:.8,comm:.2},        hl:45,  aff:['common']},
+  {id:'self',     g:'common', n:'체력·자기계발 활동',   r:{self:1},                  hl:45,  aff:['common','infantry']},
+  {id:'edu',      g:'common', n:'전문교육 이수',        r:{tech:.5,self:.5},         hl:365, aff:['maint','signal']},
+  {id:'cert',     g:'common', n:'자격증 취득',          r:{tech:.4,self:.6},         hl:365, aff:[]}];
+const TYPE = Object.fromEntries(TYPES.map(t => [t.id, t]));
+const SCALES = {daily:{n:'일상',p:1},normal:{n:'일반',p:3},important:{n:'중요',p:7},major:{n:'대형',p:15}};
+const ROLES = {lead:{n:'주관',m:1.5},part:{n:'참여',m:1},sup:{n:'보조',m:.5}};
+const NAMES = ['김민준','이서준','박도윤','최예준','정시우','강하준','조주원','윤지호','장지후','임준우','한도현','오건우',
+  '서우진','신선우','권연우','황유준','안정우','송승우','전승현','홍시윤','유준혁','고은우','문지환','양민재'];
+// 특기와 다른 직무를 맡은 인원 (인덱스 → 담당 직무)
+const CROSS = { 4:'admin', 10:'cmd', 21:'admin' };
+const MIN_GROUP = 5;
+const XP_PER_POINT = 10;
+const MODE_N = {unit:'부대별', job:'직무별', unitjob:'부대+직무'};
+
+const cum = (base, L) => { let s = 0; for (let i = 1; i < L; i++) s += Math.round(base * Math.pow(i, 1.5)); return s; };
+const levelOf = (base, xp) => { let L = 1; while (xp >= cum(base, L + 1)) L++; return L; };
+const TOTAL_BASE = 50, STAT_BASE = 20;
+const titleOf = L => L < 5 ? '신입' : L < 10 ? '숙련' : L < 15 ? '전문가' : '마스터';
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+function pickW(rng, entries){ const tot = entries.reduce((s,e)=>s+e[1],0); let x = rng()*tot; for (const [v,w] of entries){ if((x-=w) < 0) return v; } return entries[entries.length-1][0]; }
+
+const state = { people:[], acts:[], offset:0, mode:'job', fUnit:'1중대', fJob:'admin', sel:0, lens:'admin',
+  form:{type:'eventdoc', scale:'major', role:'lead'}, busy:false };
+
+// ---------- 데이터: Supabase(설정 시) 또는 로컬 시드 ----------
+const KST = 9 * 3600e3;
+const BASE_MS = Math.floor((Date.now() + KST) / 864e5) * 864e5;   // 오늘(한국 날짜) 0시
+const dayFrom = iso => Math.round((Date.parse(iso + 'T00:00:00Z') - BASE_MS) / 864e5);
+const dateFrom = day => new Date(BASE_MS + day * 864e5).toISOString().slice(0, 10);
+const CFG = window.STATBOARD_CONFIG || {};
+const REMOTE = !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
+let dbMode = 'local';
+async function api(path, opts = {}){
+  const key = CFG.supabaseAnonKey;
+  const headers = { apikey: key, 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (key.startsWith('eyJ')) headers.Authorization = `Bearer ${key}`;
+  const r = await fetch(`${CFG.supabaseUrl.replace(/\/$/, '')}/rest/v1/${path}`, { ...opts, headers });
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  const ct = r.headers.get('content-type') || '';
+  return r.status === 204 || !ct.includes('json') ? null : r.json();
+}
+async function loadRemote(){
+  const people = await api('personnel?select=*&order=id');
+  const acts = [];
+  for (let from = 0; ; from += 1000){
+    const page = await api(`activities?select=id,personnel_id,type,scale,role,points,occurred_at,is_seed&order=id&offset=${from}&limit=1000`);
+    acts.push(...page); if (page.length < 1000) break;
+  }
+  state.people = people.map(r => ({ id:r.id, name:r.name, rank:r.rank, unit:r.unit, spec:r.specialty, job:r.job,
+    defaultJob:r.default_job, baseJob:r.base_job, legacy:r.legacy_xp, statBonus:r.stat_bonus || {} }));
+  state.acts = acts.filter(r => TYPE[r.type] && SCALES[r.scale] && ROLES[r.role]).map(r => ({ id:r.id, pid:r.personnel_id,
+    type:r.type, scale:r.scale, role:r.role, points:+r.points, day:dayFrom(r.occurred_at), seed:r.is_seed }));
+  state.offset = 0;
+}
+function setStatus(mode){
+  dbMode = mode;
+  const el = document.querySelector('#dbStatus');
+  const map = { loading:['불러오는 중…',''], remote:['● Supabase 저장 중','ok'], local:['로컬 데모 · 저장 안 됨',''], error:['DB 연결 실패 · 로컬 데모','err'] };
+  el.textContent = map[mode][0]; el.className = 'status ' + map[mode][1];
+}
+function save(path, opts, onOk){
+  if (dbMode !== 'remote') return;
+  api(path, opts).then(onOk).catch(err => { console.error(err); toast('DB 저장에 실패했어요. 화면에만 반영됐어요.'); });
+}
+// SQL 시드 생성용 (supabase/seed.sql)
+window.__statboardSeed = () => { seed(); return { people: state.people, acts: state.acts }; };
+
+function seed(){
+  const rng = mulberry32(20261026);
+  const people = [], acts = [];
+  for (let i = 0; i < 24; i++){
+    const spec = SPEC_KEYS[Math.floor((i % 8) / 2)];
+    const baseJob = TRACK_OF_SPEC[spec];
+    const job = CROSS[i] || baseJob;
+    const rank = i === 0 ? '일병' : i === 4 ? '이병' : job === 'cmd' ? (rng() < .5 ? '하사' : '병장') : ['이병','일병','상병','병장'][Math.floor(rng()*4)];
+    const p = { id:i, name:NAMES[i], rank, unit:UNITS[Math.floor(i/8)], spec, job, baseJob, defaultJob: job, legacy: Math.round(300 + rng()*1400), statBonus:{} };
+    people.push(p);
+    const count = i === 0 ? 16 : 22 + Math.floor(rng()*24);
+    const typeW = TYPES.map(t => [t.id,
+      t.aff.includes(job) ? 5 : t.aff.includes(spec) ? 3.5 : t.aff.includes('common') ? 1.6 : (t.id === 'edu' || t.id === 'cert') ? .4 : .5]);
+    for (let c = 0; c < count; c++){
+      const type = pickW(rng, typeW);
+      const long = type === 'edu' || type === 'cert';
+      const scale = long ? 'important' : pickW(rng, [['daily',.45],['normal',.35],['important',.15],['major',.05]]);
+      const role = long ? 'part' : pickW(rng, [['lead',.25],['part',.5],['sup',.25]]);
+      acts.push({ pid:i, type, scale, role, points: SCALES[scale].p * ROLES[role].m, day: -Math.floor(rng()*180) - 1 });
+    }
+  }
+  state.people = people; state.acts = acts;
+  // 시연 주인공: 종합 레벨·문서작성 레벨이 각각 레벨업 직전이 되도록 보정
+  const hero = people[0];
+  const tx = totalXP(hero);
+  let L = levelOf(TOTAL_BASE, tx), target = cum(TOTAL_BASE, L + 1) - 130;
+  if (target < tx) target = cum(TOTAL_BASE, L + 2) - 130;
+  hero.legacy += target - tx;
+  const docXP = statXP(hero, 'doc');
+  L = levelOf(STAT_BASE, docXP); target = cum(STAT_BASE, L + 1) - 60;
+  if (target < docXP) target = cum(STAT_BASE, L + 2) - 60;
+  hero.statBonus.doc = target - docXP;
+  state.offset = 0;
+}
+
+const actsOf = pid => state.acts.filter(a => a.pid === pid);
+function totalXP(p){ return p.legacy + actsOf(p.id).reduce((s,a) => s + Math.round(a.points * XP_PER_POINT), 0); }
+// 도입 전 누적 XP(legacy)는 원래 계열의 가중치대로 능력치에 나눠 둠
+function statXP(p, k){
+  let s = p.legacy * (wOf(tierOf(p), p.baseJob)[k] || 0) / 100 + (p.statBonus[k] || 0);
+  for (const a of actsOf(p.id)) s += a.points * XP_PER_POINT * (TYPE[a.type].r[k] || 0);
+  return Math.round(s);
+}
+function rawScores(p){
+  const out = Object.fromEntries(STATS.map(s => [s.k, 0]));
+  for (const a of actsOf(p.id)){
+    const age = state.offset - a.day; if (age < 0) continue;
+    const t = TYPE[a.type], decay = Math.pow(.5, age / t.hl);
+    for (const k in t.r) out[k] += a.points * t.r[k] * decay;
+  }
+  return out;
+}
+const rawAll = () => Object.fromEntries(state.people.map(p => [p.id, rawScores(p)]));
+
+function pctIn(members, raw){
+  const n = members.length, pct = {}, avg = {};
+  for (const m of members) pct[m.id] = {};
+  for (const s of STATS){
+    const vals = members.map(m => raw[m.id][s.k]); let sum = 0;
+    for (const m of members){
+      const v = raw[m.id][s.k]; let less = 0, eq = 0;
+      for (const x of vals){ if (x < v - 1e-9) less++; else if (Math.abs(x - v) <= 1e-9) eq++; }
+      const q = n === 1 ? 100 : (less + (eq - 1) / 2) / (n - 1) * 100;
+      pct[m.id][s.k] = q; sum += q;
+    }
+    avg[s.k] = sum / n;
+  }
+  return { pct, avg };
+}
+const compOf = (pct, tier, job) => { const w = wOf(tier, job); return STATS.reduce((t,s) => t + (w[s.k] || 0) * pct[s.k] / 100, 0); };
+
+function groupFor(p, lens){
+  const P = state.people;
+  let m = state.mode === 'unit' ? P.filter(x => x.unit === p.unit)
+        : state.mode === 'job' ? P.filter(x => x.job === lens)
+        : P.filter(x => x.unit === p.unit && x.job === lens);
+  if (!m.includes(p)) m = [...m, p];
+  return m;
+}
+const groupName = (p, lens) => state.mode === 'unit' ? p.unit : state.mode === 'job' ? JOBS[lens].n + ' 직무' : `${p.unit} ${JOBS[lens].n}`;
+function evaluate(p, lens, raw){
+  const m = groupFor(p, lens), { pct, avg } = pctIn(m, raw);
+  const tier = tierOf(p), comp = compOf(pct[p.id], tier, lens);
+  const own = lens === p.job;
+  const others = m.filter(x => x !== p).map(x => compOf(pct[x.id], tierOf(x), own ? x.job : lens));
+  const rank = 1 + others.filter(s => s > comp + 1e-9).length;
+  return { raw: raw[p.id], pct: pct[p.id], avg, comp, rank, n: m.length, group: groupName(p, lens), tier, vis: visStats(tier, lens) };
+}
+function snap(p, lens, raw = rawAll()){
+  const r = evaluate(p, lens, raw), xp = totalXP(p), statX = {}, statL = {};
+  for (const s of STATS){ statX[s.k] = statXP(p, s.k); statL[s.k] = levelOf(STAT_BASE, statX[s.k]); }
+  return { ...r, lens, xp, level: levelOf(TOTAL_BASE, xp), statX, statL };
+}
+const progress = (xp, L) => { const a = cum(TOTAL_BASE, L), b = cum(TOTAL_BASE, L + 1); return Math.min(1, (xp - a) / (b - a)); };
+
+// ---------- 렌더링 ----------
+const $ = s => document.querySelector(s);
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function tween(dur, fn, done){
+  if (RM || dur <= 0){ fn(1); done && done(); return; }
+  const t0 = performance.now();
+  const step = t => { const k = Math.min(1, (t - t0) / dur); fn(1 - Math.pow(1 - k, 3)); k < 1 ? requestAnimationFrame(step) : done && done(); };
+  requestAnimationFrame(step);
+}
+const fmtDay = day => { const d = new Date(BASE_MS + day * 864e5); return `${d.getUTCMonth()+1}.${String(d.getUTCDate()).padStart(2,'0')}`; };
+const sel = () => state.people[state.sel];
+
+// 레이더: 반영 능력치 개수에 맞춰 축을 다시 그림
+const CX = 200, CY = 168, R = 100;
+let radarVis = [];
+const ang = i => (-90 + i * 360 / radarVis.length) * Math.PI / 180;
+const pt = (i, v) => [CX + Math.cos(ang(i)) * R * v / 100, CY + Math.sin(ang(i)) * R * v / 100];
+function ensureRadar(vis){
+  if (vis.map(s => s.k).join() === radarVis.map(s => s.k).join()) return false;
+  radarVis = vis;
+  let h = '';
+  for (const lv of [25,50,75,100]) h += `<polygon class="ring" points="${vis.map((_,i)=>pt(i,lv).join(',')).join(' ')}"/>`;
+  vis.forEach((s,i) => { const [x,y] = pt(i,100); h += `<line class="axis" x1="${CX}" y1="${CY}" x2="${x}" y2="${y}"/>`; });
+  h += `<polygon class="avg" id="rAvg"/><polygon class="me" id="rMe"/>`;
+  vis.forEach((s,i) => {
+    h += `<circle class="dot" id="rDot${i}" r="3.5"/>`;
+    const c = Math.cos(ang(i)), sn = Math.sin(ang(i));
+    const lx = CX + c * (R + 20), ly = CY + sn * (R + 20) + (sn > .5 ? 10 : sn < -.5 ? -14 : -4);
+    const anchor = c > .3 ? 'start' : c < -.3 ? 'end' : 'middle';
+    h += `<text text-anchor="${anchor}" x="${lx}" y="${ly}"><tspan class="ax-name${s.g === 'common' ? ' common' : ''}" x="${lx}">${s.n}</tspan><tspan class="ax-val" x="${lx}" dy="15" id="rVal${i}"></tspan></text>`;
+  });
+  $('#radar').innerHTML = h;
+  return true;
+}
+function drawRadar(pct, avg){
+  const vis = radarVis;
+  $('#rMe').setAttribute('points', vis.map((s,i) => pt(i, Math.max(pct[s.k], 2)).join(',')).join(' '));
+  $('#rAvg').setAttribute('points', vis.map((s,i) => pt(i, Math.max(avg[s.k], 2)).join(',')).join(' '));
+  vis.forEach((s,i) => { const [x,y] = pt(i, Math.max(pct[s.k], 2)); const d = $('#rDot'+i); d.setAttribute('cx', x); d.setAttribute('cy', y); $('#rVal'+i).textContent = Math.round(pct[s.k]) + '점'; });
+}
+const ZERO = Object.fromEntries(STATS.map(s => [s.k, 0]));
+const lerpObj = (a, b, e) => Object.fromEntries(Object.keys(b).map(k => [k, a[k] + (b[k] - a[k]) * e]));
+
+function setLevel(L, xp){
+  $('#pLv').textContent = 'Lv.' + L;
+  $('#pTitle').textContent = titleOf(L);
+  $('#xpText').textContent = `${(xp - cum(TOTAL_BASE, L)).toLocaleString()} / ${(cum(TOTAL_BASE, L+1) - cum(TOTAL_BASE, L)).toLocaleString()} XP`;
+}
+const setBar = f => $('#xpFill').style.width = (f * 100).toFixed(1) + '%';
+
+function renderIdentity(p){
+  $('#pName').textContent = `${p.name} ${p.rank}`;
+  $('#pUnit').textContent = `${p.unit} · ${TIERS[tierOf(p)]}`;
+  $('#pSpec').textContent = SPECS[p.spec];
+  $('#pJob').value = p.job;
+}
+function rankLabel(s, before){
+  const own = s.lens === sel().job;
+  const head = `${s.group} ${s.n}명 중 `;
+  const tail = own ? '' : ` (${JOBS[s.lens].n} 기준 환산)`;
+  return before && before.rank !== s.rank ? `${head}${before.rank}위 → ${s.rank}위${tail}` : `${head}${s.rank}위${tail}`;
+}
+function renderScore(s, before){
+  $('#compLabel').textContent = `종합 능력 점수 · ${TIERS[s.tier]} ${JOBS[s.lens].n} 기준`;
+  $('#rankText').textContent = rankLabel(s, before);
+  $('#refPill').hidden = s.n >= MIN_GROUP;
+  const rd = $('#rankDelta');
+  if (before && before.rank !== s.rank && before.lens === s.lens){ const up = before.rank > s.rank; rd.className = 'delta ' + (up ? 'up' : 'down'); rd.textContent = `${up ? '▲' : '▼'}${Math.abs(before.rank - s.rank)}`; }
+  else rd.textContent = '';
+  const own = s.vis.filter(st => st.g !== 'common').length;
+  $('#statTitle').textContent = `반영 능력치 · ${TIERS[s.tier]} ${JOBS[s.lens].n} (직무 ${own}개 + 공통 3개)`;
+  $('#avgLegend').textContent = `${s.group} 평균`;
+  const ex = STATS.filter(st => !s.vis.includes(st)).map(st => st.n);
+  $('#exclNote').textContent = ex.length ? `반영하지 않는 능력치: ${ex.join(', ')}` : '';
+}
+function renderLens(p, raw){
+  $('#lensLabel').textContent = `직무별 종합 능력 점수 · ${TIERS[tierOf(p)]} 기준 · 눌러서 기준 바꾸기`;
+  $('#lensGrid').innerHTML = JOB_KEYS.map(j => {
+    const e = evaluate(p, j, raw);
+    return `<button type="button" data-job="${j}" aria-pressed="${state.lens === j}">
+      <span class="jn">${JOBS[j].n}${j === p.job ? '<span class="tag">담당</span>' : ''}</span>
+      <span class="js">${Math.round(e.comp)}</span>
+      <span class="jr mono">${e.n}명 중 ${e.rank}위</span></button>`;
+  }).join('');
+}
+function renderStats(p, s, prev){
+  const w = wOf(s.tier, s.lens);
+  $('#statRows').innerHTML = s.vis.map(st => {
+    const k = st.k, pct = s.pct[k];
+    const dp = prev ? Math.round(pct) - Math.round(prev.pct[k]) : 0;
+    const lvUp = prev && s.statL[k] > prev.statL[k];
+    const flash = prev && (dp !== 0 || lvUp);
+    return `<tr class="${flash ? 'flash' : ''}">
+      <td>${st.n}${st.g === 'common' ? '<span class="g common">공통</span>' : ''}</td>
+      <td class="num mono muted">${w[k]}%</td>
+      <td class="num mono">${s.raw[k].toFixed(1)}</td>
+      <td><div class="pbar"><div class="t"><i data-k="${k}" style="width:${prev ? prev.pct[k] : pct}%"></i></div><span class="v mono">${Math.round(pct)}</span>${dp ? `<span class="delta ${dp > 0 ? 'up' : 'down'}">${dp > 0 ? '+' : ''}${dp}</span>` : ''}</div></td>
+      <td class="num slv">Lv.${s.statL[k]}${lvUp ? ' <span class="delta up">▲</span>' : ''}</td></tr>`;
+  }).join('');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll('#statRows i[data-k]').forEach(el => el.style.width = s.pct[el.dataset.k] + '%');
+  }));
+}
+function renderLog(p, freshIdx){
+  const list = state.acts.map((a,i) => ({...a, i})).filter(a => a.pid === p.id && a.day <= state.offset)
+    .sort((a,b) => b.day - a.day || b.i - a.i).slice(0, 7);
+  $('#log').innerHTML = list.map(a => {
+    const t = TYPE[a.type], remain = Math.round(Math.pow(.5, (state.offset - a.day) / t.hl) * 100);
+    return `<li class="${a.i === freshIdx ? 'fresh' : ''}">
+      <span class="d mono">${fmtDay(a.day)}</span>
+      <span><span class="t">${t.n}</span><br><span class="s">${SCALES[a.scale].n} · ${ROLES[a.role].n}</span></span>
+      <span class="x mono"><b>+${Math.round(a.points * XP_PER_POINT)} XP</b><span class="muted">반영 ${remain}%</span></span></li>`;
+  }).join('');
+}
+function rosterMembers(){
+  const P = state.people, m = state.mode;
+  return m === 'unit' ? P.filter(x => x.unit === state.fUnit)
+       : m === 'job' ? P.filter(x => x.job === state.fJob)
+       : P.filter(x => x.unit === state.fUnit && x.job === state.fJob);
+}
+function renderRoster(raw){
+  const m = state.mode;
+  $('#unitPick').hidden = m === 'job';
+  $('#jobPick').hidden = m === 'unit';
+  const list = rosterMembers();
+  const rows = list.map(p => ({ p, e: evaluate(p, p.job, raw) })).sort((a,b) => a.e.rank - b.e.rank || b.e.comp - a.e.comp);
+  $('#groupTitle').textContent = m === 'unit' ? state.fUnit : m === 'job' ? `${JOBS[state.fJob].n} 직무` : `${state.fUnit} ${JOBS[state.fJob].n}`;
+  $('#groupCount').textContent = `${list.length}명`;
+  $('#roster').innerHTML = rows.length ? rows.map(({p,e}) => {
+    const cross = TRACK_OF_SPEC[p.spec] !== p.job;
+    return `<li><button type="button" class="row" data-id="${p.id}" aria-current="${p.id === state.sel}">
+    <span class="rk mono">${e.rank}</span>
+    <span><span class="nm">${p.name} ${p.rank}</span><span class="mt">${m === 'unit' ? JOBS[p.job].n : p.unit} · ${TIERS[tierOf(p)]} · <span class="${cross ? 'spec' : ''}">특기 ${SPECS[p.spec]}</span></span></span>
+    <span class="sc mono">${Math.round(e.comp)}</span>
+    <span class="lv mono">Lv.${levelOf(TOTAL_BASE, totalXP(p))}</span></button></li>`; }).join('')
+    : `<li class="hint" style="padding:8px">이 집단에는 인원이 없어요.</li>`;
+  $('#rosterHint').textContent = m === 'unit'
+    ? '부대별: 같은 부대 인원끼리 비교해요. 점수는 각자 담당 직무의 가중치로 계산해요.'
+    : m === 'job' ? '직무별: 부대와 관계없이 같은 직무 담당자끼리 비교해요. 특기와 다른 직무를 맡은 인원은 특기가 색으로 표시돼요.'
+    : `부대+직무: 같은 부대의 같은 직무 담당자끼리 비교해요. ${MIN_GROUP}명 미만이면 참고용이에요.`;
+}
+function renderRules(s){
+  const cols = []; for (const t in TIERS) for (const j of JOB_KEYS) cols.push({t, j});
+  const isCur = c => s && c.t === s.tier && c.j === s.lens;
+  let h = `<thead><tr><th>능력치</th>${cols.map(c => `<th class="${isCur(c) ? 'cur' : ''}">${TIERS[c.t]} ${JOBS[c.j].n}</th>`).join('')}</tr></thead><tbody>`;
+  for (const g of Object.keys(STAT_GROUPS)){
+    h += `<tr class="grp ${g === 'common' ? 'common' : ''}"><td colspan="${cols.length + 1}">${STAT_GROUPS[g]} 능력치</td></tr>`;
+    for (const st of STATS.filter(x => x.g === g)){
+      h += `<tr><td>${st.n}</td>${cols.map(c => { const v = WEIGHTS[c.t][c.j][st.k]; return `<td class="num mono ${v ? '' : 'off'} ${isCur(c) ? 'cur' : ''}">${v ? v + '%' : '–'}</td>`; }).join('')}</tr>`;
+    }
+  }
+  h += `<tr class="grp"><td>합계</td>${cols.map(c => `<td class="num mono ${isCur(c) ? 'cur' : ''}">${Object.values(WEIGHTS[c.t][c.j]).reduce((a,b) => a + b, 0)}%</td>`).join('')}</tr></tbody>`;
+  $('#rules').innerHTML = h;
+}
+function renderDate(){
+  const d = new Date(BASE_MS + state.offset * 864e5);
+  $('#simDate').innerHTML = `기준일 ${d.getUTCFullYear()}.${String(d.getUTCMonth()+1).padStart(2,'0')}.${String(d.getUTCDate()).padStart(2,'0')}` + (state.offset ? ` <b>+${state.offset}일</b>` : '');
+}
+function renderPreview(){
+  const p = sel(), t = TYPE[state.form.type], pts = SCALES[state.form.scale].p * ROLES[state.form.role].m, xp = Math.round(pts * XP_PER_POINT);
+  const w = wOf(tierOf(p), state.lens);
+  const split = STATS.filter(s => t.r[s.k]).map(s => w[s.k] ? `<b>${s.n} +${Math.round(xp * t.r[s.k])}</b>` : `<span class="off">${s.n} +${Math.round(xp * t.r[s.k])}</span>`).join(' · ');
+  const anyOff = STATS.some(s => t.r[s.k] && !w[s.k]);
+  $('#preview').innerHTML = `<span class="label" style="margin:0">예상 획득 · ${p.name} ${p.rank}</span><div class="xp">+${xp} XP</div>
+    <div class="split">${split}</div>
+    <div class="split">활동 점수 ${SCALES[state.form.scale].p} × ${ROLES[state.form.role].m} = ${pts} · 반감기 ${t.hl}일${t.hl > 45 ? ' (장기 반영)' : ''}</div>
+    ${anyOff ? `<div class="split">취소선 능력치는 XP·레벨에만 쌓이고, ${TIERS[tierOf(p)]} ${JOBS[state.lens].n} 점수에는 반영되지 않아요.</div>` : ''}`;
+}
+function renderAll(){
+  const raw = rawAll(), p = sel(), s = snap(p, state.lens, raw);
+  renderDate(); renderRoster(raw); renderIdentity(p); setLevel(s.level, s.xp); setBar(progress(s.xp, s.level));
+  $('#comp').textContent = Math.round(s.comp); renderScore(s); renderLens(p, raw);
+  ensureRadar(s.vis); drawRadar(s.pct, s.avg); renderStats(p, s); renderLog(p); renderPreview(); renderRules(s);
+}
+
+// ---------- 상호작용 ----------
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 3200); }
+
+function animateTo(before, after, opts = {}){
+  const raw = rawAll(), p = sel();
+  renderDate(); renderRoster(raw); renderLens(p, raw); renderPreview(); renderRules(after);
+  renderStats(p, after, opts.flash ? before : null); renderLog(p, opts.freshIdx ?? -1);
+  renderScore(after, opts.flash ? before : null);
+  const rebuilt = ensureRadar(after.vis);
+  const fromPct = rebuilt ? ZERO : before.pct, fromAvg = rebuilt ? ZERO : before.avg;
+  tween(opts.xp ? 1100 : 600, e => {
+    drawRadar(lerpObj(fromPct, after.pct, e), lerpObj(fromAvg, after.avg, e));
+    $('#comp').textContent = Math.round(before.comp + (after.comp - before.comp) * e);
+  });
+  if (!opts.xp){ state.busy = false; return; }
+  const leveled = after.level > before.level;
+  const statUps = after.vis.filter(s => after.statL[s.k] > before.statL[s.k]);
+  const p0 = progress(before.xp, before.level);
+  if (!leveled){
+    tween(900, e => setBar(p0 + (progress(after.xp, after.level) - p0) * e));
+    setLevel(after.level, after.xp);
+    state.busy = false;
+    if (statUps.length) toast(statUps.map(s => `${s.n} Lv.${after.statL[s.k]} 달성`).join(' · '));
+    return;
+  }
+  tween(800, e => setBar(p0 + (1 - p0) * e), () => {
+    setLevel(after.level, after.xp); setBar(0);
+    showLevelUp(before, after, statUps, () => { tween(700, e => setBar(progress(after.xp, after.level) * e)); state.busy = false; });
+  });
+}
+function showLevelUp(before, after, statUps, onClose){
+  $('#lvChg').textContent = `Lv.${before.level} → Lv.${after.level}`;
+  const t0 = titleOf(before.level), t1 = titleOf(after.level);
+  $('#lvTtl').textContent = t0 !== t1 ? `칭호가 '${t0}'에서 '${t1}'(으)로 바뀌었어요` : `현재 칭호: ${t1}`;
+  $('#lvChips').innerHTML = statUps.map(s => `<span>${s.n} Lv.${before.statL[s.k]} → ${after.statL[s.k]}</span>`).join('');
+  const card = $('#lvCard'); card.querySelectorAll('.bit').forEach(b => b.remove());
+  const colors = ['var(--xp)','var(--accent)','var(--up)'];
+  for (let i = 0; i < 28; i++){
+    const b = document.createElement('span'); b.className = 'bit';
+    const a = Math.random() * Math.PI * 2, d = 90 + Math.random() * 120;
+    b.style.cssText = `--dx:${Math.cos(a)*d}px;--dy:${Math.sin(a)*d}px;--rot:${Math.random()*540-270}deg;background:${colors[i%3]};animation-delay:${Math.random()*.15}s`;
+    card.appendChild(b);
+  }
+  const ov = $('#lvup'); ov.hidden = false; $('#lvClose').focus();
+  let timer;
+  const close = () => { if (ov.hidden) return; ov.hidden = true; clearTimeout(timer); onClose(); };
+  timer = setTimeout(close, 4000);
+  $('#lvClose').onclick = close;
+  ov.onclick = e => { if (e.target === ov) close(); };
+}
+
+function buildControls(){
+  $('#fUnit').innerHTML = UNITS.map(u => `<option value="${u}">${u}</option>`).join('');
+  const jobOpts = JOB_KEYS.map(j => `<option value="${j}">${JOBS[j].n}</option>`).join('');
+  $('#fJob').innerHTML = jobOpts; $('#pJob').innerHTML = jobOpts;
+  $('#fType').innerHTML = Object.keys(STAT_GROUPS).map(g => `<optgroup label="${STAT_GROUPS[g]}">${TYPES.filter(t => t.g === g).map(t => `<option value="${t.id}">${t.n}</option>`).join('')}</optgroup>`).join('');
+  syncPickers();
+  const seg = (el, obj, key) => {
+    el.innerHTML = Object.entries(obj).map(([k,v]) => `<button type="button" data-v="${k}" aria-pressed="${state.form[key] === k}">${v.n}${v.p ? ' ' + v.p : ' ×' + v.m}</button>`).join('');
+    el.onclick = e => { const b = e.target.closest('button'); if (!b) return; state.form[key] = b.dataset.v; el.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderPreview(); };
+  };
+  seg($('#fScale'), SCALES, 'scale'); seg($('#fRole'), ROLES, 'role');
+}
+function syncPickers(){
+  $('#fUnit').value = state.fUnit; $('#fJob').value = state.fJob; $('#fType').value = state.form.type;
+  document.querySelectorAll('#modeSeg button').forEach(x => x.setAttribute('aria-pressed', x.dataset.mode === state.mode));
+}
+function ensureSelectionInRoster(){
+  const list = rosterMembers();
+  if (list.length && !list.includes(sel())){
+    const raw = rawAll();
+    const top = list.map(p => ({ p, e: evaluate(p, p.job, raw) })).sort((a,b) => a.e.rank - b.e.rank)[0].p;
+    state.sel = top.id; state.lens = top.job;
+  }
+}
+
+$('#fType').addEventListener('change', e => { state.form.type = e.target.value; renderPreview(); });
+$('#fUnit').addEventListener('change', e => { state.fUnit = e.target.value; ensureSelectionInRoster(); renderAll(); });
+$('#fJob').addEventListener('change', e => { state.fJob = e.target.value; ensureSelectionInRoster(); renderAll(); });
+$('#modeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || state.busy || b.dataset.mode === state.mode) return;
+  const p = sel(), before = snap(p, state.lens);
+  state.mode = b.dataset.mode; state.fUnit = p.unit; state.fJob = p.job; syncPickers();
+  animateTo(before, snap(p, state.lens));
+  toast(`비교 집단을 ${MODE_N[state.mode]}로 바꿨어요.`);
+});
+$('#roster').addEventListener('click', e => {
+  const b = e.target.closest('.row'); if (!b || state.busy) return;
+  state.sel = +b.dataset.id; state.lens = sel().job; renderAll();
+});
+$('#lensGrid').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || state.busy || b.dataset.job === state.lens) return;
+  const p = sel(), before = snap(p, state.lens);
+  state.lens = b.dataset.job;
+  animateTo(before, snap(p, state.lens));
+});
+$('#pJob').addEventListener('change', e => {
+  if (state.busy){ e.target.value = sel().job; return; }
+  const p = sel(); p.job = e.target.value; state.lens = p.job;
+  if (state.mode !== 'unit') state.fJob = p.job;
+  syncPickers(); renderAll();
+  save(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ job: p.job }) });
+  toast(`${p.name} ${p.rank}의 담당 직무를 ${JOBS[p.job].n}(으)로 바꿨어요. 특기는 ${SPECS[p.spec]} 그대로예요.`);
+});
+$('#actForm').addEventListener('submit', e => {
+  e.preventDefault(); if (state.busy) return;
+  state.busy = true;
+  const p = sel(), before = snap(p, state.lens);
+  const { type, scale, role } = state.form, points = SCALES[scale].p * ROLES[role].m;
+  const act = { pid:p.id, type, scale, role, points, day: state.offset, seed:false };
+  state.acts.push(act);
+  save('activities', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ personnel_id:p.id, type, scale, role, points, occurred_at: dateFrom(state.offset) }) }, r => { act.id = r && r[0] && r[0].id; });
+  const after = snap(p, state.lens);
+  toast(`+${Math.round(points * XP_PER_POINT)} XP · ${TYPE[type].n} (${SCALES[scale].n}·${ROLES[role].n})`);
+  animateTo(before, after, { xp:true, flash:true, freshIdx: state.acts.length - 1 });
+});
+$('#skipBtn').addEventListener('click', () => {
+  if (state.busy) return;
+  const p = sel(), before = snap(p, state.lens);
+  state.offset += 30;
+  animateTo(before, snap(p, state.lens), { flash:true });
+  toast('30일이 지났어요. 원점수는 감쇠로 줄고, 레벨과 XP는 그대로예요.');
+});
+let resetArmed = 0;
+$('#resetBtn').addEventListener('click', async () => {
+  if (state.busy) return;
+  const btn = $('#resetBtn');
+  if (dbMode === 'remote' && Date.now() - resetArmed > 4000){
+    resetArmed = Date.now(); btn.textContent = '한 번 더 누르면 초기화';
+    setTimeout(() => { btn.textContent = '초기화'; }, 4000);
+    toast('직접 기록한 활동과 직무 변경이 DB에서 모두 지워져요.');
+    return;
+  }
+  btn.textContent = '초기화';
+  if (dbMode === 'remote'){
+    state.busy = true; setStatus('loading');
+    try {
+      await api('activities?is_seed=eq.false', { method:'DELETE' });
+      for (const p of state.people.filter(p => p.job !== p.defaultJob))
+        await api(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ job: p.defaultJob }) });
+      await loadRemote(); setStatus('remote');
+    } catch (err){ console.error(err); setStatus('error'); }
+    state.busy = false;
+  } else seed();
+  Object.assign(state, { sel:0, mode:'job', fUnit:'1중대', fJob:'admin', lens:'admin' });
+  syncPickers(); renderAll(); toast('처음 상태로 되돌렸어요.');
+});
+
+async function boot(){
+  buildControls();
+  if (REMOTE){
+    setStatus('loading');
+    try { await loadRemote(); setStatus(state.people.length ? 'remote' : 'error'); }
+    catch (err){ console.error(err); setStatus('error'); }
+  } else setStatus('local');
+  if (dbMode !== 'remote') seed();
+  syncPickers(); renderAll();
+}
+boot();
+})();
+</script>
+
+</body>
+</html>
