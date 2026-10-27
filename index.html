@@ -586,15 +586,21 @@ function pctIn(members, raw){
 }
 const compOf = (pct, tier, job) => { const w = wOf(tier, job); return STATS.reduce((t,s) => t + (w[s.k] || 0) * pct[s.k] / 100, 0); };
 
+// 직무 비교 코드: 특기 직무는 특기별로 나눔 (예: 'spec:signal' = 특기(통신))
+const codeOf = p => p.job === 'spec' ? 'spec:' + p.spec : p.job;
+const codeLabel = c => c.startsWith('spec:') ? `특기(${SPECS[c.slice(5)]})` : c === 'spec' ? '특기(전체)' : JOBS[c].n;
+const matchCode = (x, c) => c === 'spec' ? x.job === 'spec' : codeOf(x) === c;
+const lensCode = (p, lens) => lens !== 'spec' ? lens : state.people.some(x => codeOf(x) === 'spec:' + p.spec) ? 'spec:' + p.spec : 'spec';
+const jobCodes = () => { const cs = new Set(state.people.map(codeOf)); return ['admin', ...SPEC_KEYS.map(s => 'spec:' + s).filter(c => cs.has(c)), 'cmd']; };
 function groupFor(p, lens){
-  const P = state.people;
+  const P = state.people, c = lensCode(p, lens);
   let m = state.mode === 'unit' ? P.filter(x => x.unit === p.unit)
-        : state.mode === 'job' ? P.filter(x => x.job === lens)
-        : P.filter(x => x.unit === p.unit && x.job === lens);
+        : state.mode === 'job' ? P.filter(x => matchCode(x, c))
+        : P.filter(x => x.unit === p.unit && matchCode(x, c));
   if (!m.includes(p)) m = [...m, p];
   return m;
 }
-const groupName = (p, lens) => state.mode === 'unit' ? p.unit : state.mode === 'job' ? JOBS[lens].n + ' 직무' : `${p.unit} ${JOBS[lens].n}`;
+const groupName = (p, lens) => state.mode === 'unit' ? p.unit : state.mode === 'job' ? codeLabel(lensCode(p, lens)) : `${p.unit} ${codeLabel(lensCode(p, lens))}`;
 function evaluate(p, lens, raw){
   const m = groupFor(p, lens), { pct, avg } = pctIn(m, raw);
   const tier = tierOf(p), comp = compOf(pct[p.id], tier, lens);
@@ -664,6 +670,7 @@ function renderIdentity(p){
   $('#pName').textContent = `${p.name} ${p.rank}`;
   $('#pUnit').textContent = `${p.unit} · ${TIERS[tierOf(p)]}`;
   $('#pSpec').textContent = SPECS[p.spec];
+  $('#pJob').innerHTML = JOB_KEYS.map(j => `<option value="${j}">${j === 'spec' ? `특기(${SPECS[p.spec]})` : JOBS[j].n}</option>`).join('');
   $('#pJob').value = p.job;
 }
 function rankLabel(s, before){
@@ -690,7 +697,7 @@ function renderLens(p, raw){
   $('#lensGrid').innerHTML = JOB_KEYS.map(j => {
     const e = evaluate(p, j, raw);
     return `<button type="button" data-job="${j}" aria-pressed="${state.lens === j}">
-      <span class="jn">${JOBS[j].n}${j === p.job ? '<span class="tag">담당</span>' : ''}</span>
+      <span class="jn">${codeLabel(lensCode(p, j))}${j === p.job ? '<span class="tag">담당</span>' : ''}</span>
       <span class="js">${Math.round(e.comp)}</span>
       <span class="jr mono">${e.n}명 중 ${e.rank}위</span></button>`;
   }).join('');
@@ -727,8 +734,8 @@ function renderLog(p, freshIdx){
 function rosterMembers(){
   const P = state.people, m = state.mode;
   return m === 'unit' ? P.filter(x => x.unit === state.fUnit)
-       : m === 'job' ? P.filter(x => x.job === state.fJob)
-       : P.filter(x => x.unit === state.fUnit && x.job === state.fJob);
+       : m === 'job' ? P.filter(x => matchCode(x, state.fJob))
+       : P.filter(x => x.unit === state.fUnit && matchCode(x, state.fJob));
 }
 function renderRoster(raw){
   const m = state.mode;
@@ -736,13 +743,18 @@ function renderRoster(raw){
   $('#jobPick').hidden = m === 'unit';
   const list = rosterMembers();
   const rows = list.map(p => ({ p, e: evaluate(p, p.job, raw) })).sort((a,b) => a.e.rank - b.e.rank || b.e.comp - a.e.comp);
-  $('#groupTitle').textContent = m === 'unit' ? state.fUnit : m === 'job' ? `${JOBS[state.fJob].n} 직무` : `${state.fUnit} ${JOBS[state.fJob].n}`;
+  const codes = jobCodes(), fj = $('#fJob');
+  if (!codes.includes(state.fJob)) state.fJob = codes[0];
+  const opts = codes.map(c => `<option value="${c}">${codeLabel(c)}</option>`).join('');
+  if (fj.dataset.opts !== opts){ fj.innerHTML = opts; fj.dataset.opts = opts; }
+  fj.value = state.fJob;
+  $('#groupTitle').textContent = m === 'unit' ? state.fUnit : m === 'job' ? codeLabel(state.fJob) : `${state.fUnit} ${codeLabel(state.fJob)}`;
   $('#groupCount').textContent = `${list.length}명`;
   $('#roster').innerHTML = rows.length ? rows.map(({p,e}) => {
     const cross = TRACK_OF_SPEC[p.spec] !== p.job;
     return `<li><button type="button" class="row" data-id="${p.id}" aria-current="${p.id === state.sel}">
     <span class="rk mono">${e.rank}</span>
-    <span><span class="nm">${p.name} ${p.rank}</span><span class="mt">${m === 'unit' ? JOBS[p.job].n : p.unit} · ${TIERS[tierOf(p)]} · <span class="${cross ? 'spec' : ''}">특기 ${SPECS[p.spec]}</span></span></span>
+    <span><span class="nm">${p.name} ${p.rank}</span><span class="mt">${m === 'unit' ? codeLabel(codeOf(p)) : p.unit} · ${TIERS[tierOf(p)]} · <span class="${cross ? 'spec' : ''}">특기 ${SPECS[p.spec]}</span></span></span>
     <span class="sc mono">${Math.round(e.comp)}</span>
     <span class="lv mono">Lv.${levelOf(TOTAL_BASE, totalXP(p))}</span></button></li>`; }).join('')
     : `<li class="hint" style="padding:8px">이 집단에는 인원이 없어요.</li>`;
@@ -851,8 +863,7 @@ function showLevelUp(before, after, statUps, onClose){
 
 function buildControls(){
   $('#fUnit').innerHTML = UNITS.map(u => `<option value="${u}">${u}</option>`).join('');
-  const jobOpts = JOB_KEYS.map(j => `<option value="${j}">${JOBS[j].n}</option>`).join('');
-  $('#fJob').innerHTML = jobOpts; $('#pJob').innerHTML = jobOpts;
+  $('#pJob').innerHTML = JOB_KEYS.map(j => `<option value="${j}">${JOBS[j].n}</option>`).join('');
   $('#fType').innerHTML = Object.keys(STAT_GROUPS).map(g => `<optgroup label="${STAT_GROUPS[g]}">${TYPES.filter(t => t.g === g).map(t => `<option value="${t.id}">${t.n}</option>`).join('')}</optgroup>`).join('');
   syncPickers();
   const seg = (el, obj, key) => {
@@ -881,7 +892,7 @@ $('#fJob').addEventListener('change', e => { state.fJob = e.target.value; ensure
 $('#modeSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || state.busy || b.dataset.mode === state.mode) return;
   const p = sel(), before = snap(p, state.lens);
-  state.mode = b.dataset.mode; state.fUnit = p.unit; state.fJob = p.job; syncPickers();
+  state.mode = b.dataset.mode; state.fUnit = p.unit; state.fJob = codeOf(p); syncPickers();
   animateTo(before, snap(p, state.lens));
   toast(`비교 집단을 ${MODE_N[state.mode]}로 바꿨어요.`);
 });
@@ -898,10 +909,10 @@ $('#lensGrid').addEventListener('click', e => {
 $('#pJob').addEventListener('change', e => {
   if (state.busy){ e.target.value = sel().job; return; }
   const p = sel(); p.job = e.target.value; state.lens = p.job;
-  if (state.mode !== 'unit') state.fJob = p.job;
+  if (state.mode !== 'unit') state.fJob = codeOf(p);
   syncPickers(); renderAll();
   save(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ job: p.job }) });
-  toast(`${p.name} ${p.rank}의 담당 직무를 ${JOBS[p.job].n}(으)로 바꿨어요. 특기는 ${SPECS[p.spec]} 그대로예요.`);
+  toast(`${p.name} ${p.rank}의 담당 직무를 ${codeLabel(codeOf(p))}(으)로 바꿨어요. 특기는 ${SPECS[p.spec]} 그대로예요.`);
 });
 $('#actForm').addEventListener('submit', e => {
   e.preventDefault(); if (state.busy) return;
