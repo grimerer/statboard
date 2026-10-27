@@ -297,7 +297,7 @@ table.rules th.cur{color:var(--accent)}
     <div class="sim">
       <button type="button" class="status" id="dbStatus" disabled>불러오는 중…</button>
       <span class="date-chip mono" id="simDate">기준일</span>
-      <button class="btn demo" id="skipBtn" type="button" title="시연용: 시간이 30일 흐른 상황을 미리 보여줘요. 실제 기록은 바뀌지 않아요.">30일 경과<span class="demo-tag">시연용</span></button>
+      <button class="btn demo" id="skipBtn" type="button" title="시연용: 조회 중인 인원만 30일 동안 아무 활동도 하지 않은 상황을 보여줘요. 다른 인원과 DB 기록은 그대로예요.">30일 미활동<span class="demo-tag">시연용</span></button>
       <button class="btn" id="resetBtn" type="button">초기화</button>
     </div>
   </header>
@@ -819,7 +819,7 @@ function rawScores(p){
   const latest = {};
   for (const a of actsOf(p.id)) if (TYPE[a.type].latestOnly && a.day <= state.offset && (!latest[a.type] || a.day >= latest[a.type].day)) latest[a.type] = a;
   for (const a of actsOf(p.id)){
-    const age = state.offset - a.day; if (age < 0) continue;
+    const age = state.offset - a.day + (a.aged || 0); if (state.offset - a.day < 0) continue;
     if (TYPE[a.type].latestOnly && latest[a.type] !== a) continue;
     const t = TYPE[a.type], decay = Math.pow(.5, age / t.hl);
     for (const k in t.r) out[k] += a.points * t.r[k] * decay;
@@ -1019,7 +1019,7 @@ function renderLog(p, freshIdx){
   const list = state.acts.map((a,i) => ({...a, i})).filter(a => a.pid === p.id && a.day <= state.offset)
     .sort((a,b) => b.day - a.day || b.i - a.i).slice(0, 7);
   $('#log').innerHTML = list.map(a => {
-    const t = TYPE[a.type], remain = Math.round(Math.pow(.5, (state.offset - a.day) / t.hl) * 100);
+    const t = TYPE[a.type], remain = Math.round(Math.pow(.5, (state.offset - a.day + (a.aged || 0)) / t.hl) * 100);
     return `<li class="${a.i === freshIdx ? 'fresh' : ''}">
       <span class="d mono">${fmtDay(a.day)}</span>
       <span><span class="t">${t.n}</span><br><span class="s">${actLabel(a)}</span></span>
@@ -1275,11 +1275,13 @@ $('#actForm').addEventListener('submit', e => {
 });
 $('#skipBtn').addEventListener('click', () => {
   if (state.busy) return;
+  // 조회 중인 인원만 30일 동안 활동이 없었던 것처럼: 이 인원의 기존 기록만 30일 더 오래된 것으로 계산 (다른 인원은 그대로)
   const p = sel(), before = snap(p, state.lens);
-  state.offset += 30;
+  for (const a of actsOf(p.id)) if (a.day <= state.offset) a.aged = (a.aged || 0) + 30;
+  p.idle = (p.idle || 0) + 30;
   animateTo(before, snap(p, state.lens), { flash:true,
-    cause: { title:'30일 경과 후 바뀐 점수 (시연)', text:'모든 인원의 기록 점수가 시간이 지나며 줄었어요(반감기). 같은 집단 인원과 다시 비교하기 때문에 순위가 바뀔 수 있어요.' } });
-  toast('30일이 지났어요. 원점수는 감쇠로 줄고, 레벨과 XP는 그대로예요.');
+    cause: { title:`${p.name}만 ${p.idle}일 미활동 (시연)`, text:`다른 인원은 그대로 두고 ${p.name}의 기록만 ${p.idle}일 더 오래된 것으로 계산했어요(반감기). 그동안 활동하지 않으면 같은 집단 안에서 점수와 순위가 이렇게 내려가요.` } });
+  toast(`${p.name}만 30일 동안 활동이 없었던 상황이에요. 레벨과 XP는 그대로예요.`);
 });
 let resetArmed = 0;
 $('#resetBtn').addEventListener('click', async () => {
