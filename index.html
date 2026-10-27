@@ -103,7 +103,7 @@ select{font:inherit;background:var(--surface);color:var(--ink);border:1px solid 
 .delta.up{color:var(--up)} .delta.down{color:var(--down)}
 
 .lens{grid-column:1/-1;border-top:1px solid var(--line);padding-top:16px}
-.lens-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.lens-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
 .lens-grid button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;text-align:left;display:grid;gap:2px}
 .lens-grid button:hover{border-color:var(--muted)}
 .lens-grid button[aria-pressed="true"]{border-color:var(--accent);background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--accent)}
@@ -346,12 +346,16 @@ const STATS = [
   {k:'lead',n:'리더십',g:'cmd'},{k:'train',n:'교육훈련',g:'cmd'},{k:'judge',n:'상황판단',g:'cmd'},{k:'people',n:'인원관리',g:'cmd'},
   {k:'comm',n:'소통/협업',g:'common'},{k:'self',n:'자기계발',g:'common'},{k:'serve',n:'봉사',g:'common'}];
 // 담당 직무(계열): 특기와 별개로 지정
-const JOBS = {admin:{n:'행정'}, spec:{n:'특기'}, cmd:{n:'지휘관'}};
+// 담당 직무: 비교 집단의 기준. t는 가중치 계열(행정/특기/지휘관)
+const JOBS = {admin:{n:'직무(행정)',t:'admin'}, maint:{n:'직무(정비)',t:'spec'}, signal:{n:'직무(통신)',t:'spec'}, cmd:{n:'직무(지휘)',t:'cmd'}};
+const TRACKS = {admin:'행정', spec:'정비·통신', cmd:'지휘'};
 const JOB_KEYS = Object.keys(JOBS);
 // 특기: 인사상 고정값
 const SPECS = {admin:'행정', maint:'정비', signal:'통신', infantry:'보병'};
 const SPEC_KEYS = Object.keys(SPECS);
 const TRACK_OF_SPEC = {admin:'admin', maint:'spec', signal:'spec', infantry:'cmd'};
+const DUTY_OF_SPEC = {admin:'admin', maint:'maint', signal:'signal', infantry:'cmd'};
+const toDuty = (job, spec) => job === 'spec' ? (spec === 'signal' ? 'signal' : 'maint') : job;
 // 계층×직무별 반영 능력치와 가중치 (합계 100)
 const TIERS = {enlisted:'병사', cadre:'간부'};
 const CADRE_RANKS = ['하사','중사','상사','원사','소위','중위','대위','소령'];
@@ -365,7 +369,7 @@ const WEIGHTS = {
     admin:{doc:20,plan:20,brief:15,mgmt:15,comm:15,self:8,serve:7},
     spec:{tech:25,equip:15,solve:15,safety:15,comm:15,self:8,serve:7},
     cmd:{lead:22,train:18,judge:18,people:12,comm:15,self:8,serve:7}}};
-const wOf = (tier, job) => WEIGHTS[tier][job];
+const wOf = (tier, job) => WEIGHTS[tier][JOBS[job] ? JOBS[job].t : job];
 const visStats = (tier, job) => STATS.filter(s => wOf(tier, job)[s.k]);
 const UNITS = ['1중대','2중대','3중대'];
 // 활동 유형 템플릿: 능력치 배분(합계 1), 반감기, 주로 하는 계열/특기(시드 데이터용)
@@ -483,8 +487,8 @@ async function loadRemote(){
     const page = await api(`activities?select=id,personnel_id,type,scale,role,points,detail,occurred_at,is_seed&order=id&offset=${from}&limit=1000`);
     acts.push(...page); if (page.length < 1000) break;
   }
-  state.people = people.map(r => ({ id:r.id, name:r.name, rank:r.rank, unit:r.unit, spec:r.specialty, job:r.job,
-    defaultJob:r.default_job, baseJob:r.base_job, legacy:r.legacy_xp, statBonus:r.stat_bonus || {} }));
+  state.people = people.map(r => ({ id:r.id, name:r.name, rank:r.rank, unit:r.unit, spec:r.specialty, job:r.duty || toDuty(r.job, r.specialty),
+    defaultJob:r.default_duty || toDuty(r.default_job, r.specialty), baseJob:r.base_job, legacy:r.legacy_xp, statBonus:r.stat_bonus || {} }));
   state.acts = acts.filter(r => TYPE[r.type] && (r.detail || (SCALES[r.scale] && ROLES[r.role]))).map(r => ({ id:r.id, pid:r.personnel_id,
     type:r.type, scale:r.scale, role:r.role, points:+r.points, detail:r.detail || null, day:dayFrom(r.occurred_at), seed:r.is_seed }));
   state.offset = 0;
@@ -573,6 +577,7 @@ function seed(){
       acts.push({ pid:i, type, scale, role, points: SCALES[scale].p * ROLES[role].m, day: -Math.floor(rng3()*180) - 1 });
     }
   }
+  for (const p of people){ p.job = toDuty(p.job, p.spec); p.defaultJob = p.job; }
   state.people = people; state.acts = acts;
   // 시연 주인공: 종합 레벨·문서작성 레벨이 각각 레벨업 직전이 되도록 보정
   const hero = people[0];
@@ -628,11 +633,12 @@ function pctIn(members, raw){
 const compOf = (pct, tier, job) => { const w = wOf(tier, job); return STATS.reduce((t,s) => t + (w[s.k] || 0) * pct[s.k] / 100, 0); };
 
 // 직무 비교 코드: 특기 직무는 특기별로 나눔 (예: 'spec:signal' = 특기(통신))
-const codeOf = p => p.job === 'spec' ? 'spec:' + p.spec : p.job;
-const codeLabel = c => c.startsWith('spec:') ? `직무(${SPECS[c.slice(5)]})` : c === 'spec' ? '직무(특기 전체)' : JOBS[c].n;
-const matchCode = (x, c) => c === 'spec' ? x.job === 'spec' : codeOf(x) === c;
-const lensCode = (p, lens) => lens !== 'spec' ? lens : state.people.some(x => codeOf(x) === 'spec:' + p.spec) ? 'spec:' + p.spec : 'spec';
-const jobCodes = () => { const cs = new Set(state.people.map(codeOf)); return ['admin', ...SPEC_KEYS.map(s => 'spec:' + s).filter(c => cs.has(c)), 'cmd']; };
+// 비교 집단은 담당 직무 기준 (특기는 검색·표시용)
+const codeOf = p => p.job;
+const codeLabel = c => JOBS[c] ? JOBS[c].n : c;
+const matchCode = (x, c) => x.job === c;
+const lensCode = (p, lens) => lens;
+const jobCodes = () => JOB_KEYS;
 function groupFor(p, lens){
   const P = state.people, c = lensCode(p, lens);
   let m = state.mode === 'unit' ? P.filter(x => x.unit === p.unit)
@@ -713,7 +719,7 @@ function renderIdentity(p){
   $('#pName').textContent = `${p.name} ${p.rank}`;
   $('#pUnit').textContent = `${p.unit} · ${TIERS[tierOf(p)]}`;
   $('#pSpec').textContent = SPECS[p.spec];
-  $('#pJob').innerHTML = JOB_KEYS.map(j => `<option value="${j}">${j === 'spec' ? `직무(${SPECS[p.spec]})` : JOBS[j].n}</option>`).join('');
+  $('#pJob').innerHTML = JOB_KEYS.map(j => `<option value="${j}">${JOBS[j].n}</option>`).join('');
   $('#pJob').value = p.job;
 }
 function rankLabel(s, before){
@@ -813,7 +819,7 @@ function renderRoster(raw){
   $('#groupTitle').textContent = (m === 'unit' ? state.fUnit : m === 'job' ? codeLabel(state.fJob) : `${state.fUnit} ${codeLabel(state.fJob)}`) + (state.fTier !== 'all' ? ' · ' + TIERS[state.fTier] : '');
   $('#groupCount').textContent = `${list.length}명`;
   $('#roster').innerHTML = rows.length ? rows.map(({p,e}) => {
-    const cross = TRACK_OF_SPEC[p.spec] !== p.job;
+    const cross = DUTY_OF_SPEC[p.spec] !== p.job;
     return `<li><button type="button" class="row" data-id="${p.id}" aria-current="${p.id === state.sel}">
     <span class="rk mono">${e.rank}</span>
     <span><span class="nm">${p.name} ${p.rank}</span><span class="mt">${m === 'unit' ? codeLabel(codeOf(p)) : p.unit} · ${TIERS[tierOf(p)]} · <span class="${cross ? 'spec' : ''}">특기 ${SPECS[p.spec]}</span></span></span>
@@ -826,9 +832,9 @@ function renderRoster(raw){
     : `부대+직무: 같은 부대의 같은 직무 담당자끼리 비교해요. ${MIN_GROUP}명 미만이면 참고용이에요.`;
 }
 function renderRules(s){
-  const cols = []; for (const t in TIERS) for (const j of JOB_KEYS) cols.push({t, j});
-  const isCur = c => s && c.t === s.tier && c.j === s.lens;
-  let h = `<thead><tr><th>능력치</th>${cols.map(c => `<th class="${isCur(c) ? 'cur' : ''}">${TIERS[c.t]} ${JOBS[c.j].n}</th>`).join('')}</tr></thead><tbody>`;
+  const cols = []; for (const t in TIERS) for (const j in TRACKS) cols.push({t, j});
+  const isCur = c => s && c.t === s.tier && c.j === JOBS[s.lens].t;
+  let h = `<thead><tr><th>능력치</th>${cols.map(c => `<th class="${isCur(c) ? 'cur' : ''}">${TIERS[c.t]} ${TRACKS[c.j]}</th>`).join('')}</tr></thead><tbody>`;
   for (const g of Object.keys(STAT_GROUPS)){
     h += `<tr class="grp ${g === 'common' ? 'common' : ''}"><td colspan="${cols.length + 1}">${STAT_GROUPS[g]} 능력치</td></tr>`;
     for (const st of STATS.filter(x => x.g === g)){
@@ -987,7 +993,7 @@ $('#pJob').addEventListener('change', e => {
   const p = sel(); p.job = e.target.value; state.lens = p.job;
   if (state.mode !== 'unit') state.fJob = codeOf(p);
   syncPickers(); renderAll();
-  save(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ job: p.job }) });
+  save(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ duty: p.job }) });
   toast(`${p.name} ${p.rank}의 담당 직무를 ${codeLabel(codeOf(p))}(으)로 바꿨어요. 특기는 ${SPECS[p.spec]} 그대로예요.`);
 });
 $('#actForm').addEventListener('submit', e => {
@@ -1026,7 +1032,7 @@ $('#resetBtn').addEventListener('click', async () => {
     try {
       await api('activities?is_seed=eq.false', { method:'DELETE' });
       for (const p of state.people.filter(p => p.job !== p.defaultJob))
-        await api(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ job: p.defaultJob }) });
+        await api(`personnel?id=eq.${p.id}`, { method:'PATCH', body: JSON.stringify({ duty: p.defaultJob }) });
       await loadRemote(); setStatus('remote');
     } catch (err){ console.error(err); setStatus('error'); }
     state.busy = false;
